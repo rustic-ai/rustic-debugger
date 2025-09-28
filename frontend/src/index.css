@@ -58,6 +58,13 @@
   }
 }
 
+/* Custom code font styles */
+@layer utilities {
+  .font-code {
+    font-family: 'Fira Code', 'JetBrains Mono', 'Cascadia Code', 'Consolas', 'Monaco', monospace;
+  }
+}
+
 /* Status colors that respect dark mode */
 @layer utilities {
   .status-success {

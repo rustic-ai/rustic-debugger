@@ -10,27 +10,29 @@ import {
   Clock,
   User,
   ArrowRight,
-  X
+  X,
+  Hash,
+  Code
 } from 'lucide-react';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { tomorrow } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 
 export function MessageInspector() {
   const { selectedMessageId, selectMessage } = useMessageStore();
   const [copiedField, setCopiedField] = useState<string | null>(null);
-  
+
   const { data: message, isLoading } = useQuery({
     queryKey: ['message', selectedMessageId],
     queryFn: () => selectedMessageId ? apiClient.getMessage(selectedMessageId) : null,
     enabled: !!selectedMessageId,
   });
-  
+
   const copyToClipboard = (text: string, field: string) => {
     navigator.clipboard.writeText(text);
     setCopiedField(field);
     setTimeout(() => setCopiedField(null), 2000);
   };
-  
+
   if (!selectedMessageId) {
     return (
       <div className="h-full flex items-center justify-center text-muted-foreground">
@@ -38,7 +40,7 @@ export function MessageInspector() {
       </div>
     );
   }
-  
+
   if (isLoading) {
     return (
       <div className="h-full flex items-center justify-center text-muted-foreground">
@@ -46,7 +48,7 @@ export function MessageInspector() {
       </div>
     );
   }
-  
+
   if (!message) {
     return (
       <div className="h-full flex items-center justify-center text-muted-foreground">
@@ -54,7 +56,7 @@ export function MessageInspector() {
       </div>
     );
   }
-  
+
   return (
     <div className="h-full flex flex-col bg-card">
       <MessageHeader message={message} onClose={() => selectMessage(null)} />
@@ -63,7 +65,7 @@ export function MessageInspector() {
         <MessageMetadata message={message} onCopy={copyToClipboard} copiedField={copiedField} />
         <MessagePayload message={message} onCopy={copyToClipboard} copiedField={copiedField} />
         <MessageRouting message={message} />
-        {message.error && <MessageError error={message.error} />}
+        {message.is_error_message && <MessageError message={message} />}
       </div>
     </div>
   );
@@ -75,18 +77,23 @@ interface MessageHeaderProps {
 }
 
 function MessageHeader({ message, onClose }: MessageHeaderProps) {
+  const msgId = typeof message.id === 'number' ? message.id.toString() :
+                typeof message.id === 'string' ? message.id :
+                message.id?.id || 'unknown';
+
   return (
     <div className="p-4 border-b">
       <div className="flex items-start justify-between">
         <div>
           <h3 className="font-semibold text-lg">Message Details</h3>
           <p className="text-sm text-muted-foreground mt-1">
-            ID: {message.id.id}
+            ID: {msgId}
           </p>
         </div>
         <button
           onClick={onClose}
           className="p-1 hover:bg-muted rounded"
+          aria-label="close"
         >
           <X className="w-4 h-4" />
         </button>
@@ -103,15 +110,18 @@ function MessageStatus({ message }: MessageStatusProps) {
   const statusConfig = {
     pending: { icon: Clock, color: 'text-yellow-600 bg-yellow-100' },
     processing: { icon: Clock, color: 'text-blue-600 bg-blue-100' },
+    running: { icon: Clock, color: 'text-blue-600 bg-blue-100' },
+    completed: { icon: CheckCircle, color: 'text-green-600 bg-green-100' },
     success: { icon: CheckCircle, color: 'text-green-600 bg-green-100' },
     error: { icon: AlertCircle, color: 'text-red-600 bg-red-100' },
     timeout: { icon: Clock, color: 'text-orange-600 bg-orange-100' },
     rejected: { icon: X, color: 'text-gray-600 bg-gray-100' },
   };
-  
-  const config = statusConfig[message.status.current];
+
+  const status = message.process_status || (message.is_error_message ? 'error' : 'completed');
+  const config = statusConfig[status] || statusConfig.completed;
   const Icon = config.icon;
-  
+
   return (
     <div className="p-4 border-b">
       <h4 className="text-sm font-medium mb-3">Status</h4>
@@ -119,27 +129,27 @@ function MessageStatus({ message }: MessageStatusProps) {
         <div className={`flex items-center space-x-2 px-3 py-1.5 rounded-full ${config.color}`}>
           <Icon className="w-4 h-4" />
           <span className="text-sm font-medium capitalize">
-            {message.status.current}
+            {status}
           </span>
         </div>
         <span className="text-sm text-muted-foreground">
-          {new Date(message.metadata.timestamp).toLocaleString()}
+          {new Date(message.timestamp).toLocaleString()}
         </span>
       </div>
-      
-      {message.status.history.length > 0 && (
+
+      {message.message_history && message.message_history.length > 0 && (
         <div className="mt-3">
           <p className="text-xs text-muted-foreground mb-2">History</p>
           <div className="space-y-1">
-            {message.status.history.map((item, index) => (
+            {message.message_history.map((item, index) => (
               <div key={index} className="flex items-center space-x-2 text-xs">
                 <span className="text-muted-foreground">
                   {new Date(item.timestamp).toLocaleTimeString()}
                 </span>
                 <ArrowRight className="w-3 h-3 text-muted-foreground" />
                 <span className="font-medium">{item.status}</span>
-                {item.reason && (
-                  <span className="text-muted-foreground">({item.reason})</span>
+                {item.message && (
+                  <span className="text-muted-foreground">({item.message})</span>
                 )}
               </div>
             ))}
@@ -157,16 +167,24 @@ interface MessageMetadataProps {
 }
 
 function MessageMetadata({ message, onCopy, copiedField }: MessageMetadataProps) {
+  const topics = typeof message.topics === 'string' ? message.topics :
+                Array.isArray(message.topics) ? message.topics.join(', ') :
+                'None';
+
+  const threadId = message.current_thread_id ? message.current_thread_id.toString() :
+                   message.thread && message.thread.length > 0 ? message.thread[0].toString() :
+                   'None';
+
   const fields = [
-    { label: 'Guild ID', value: message.guildId, field: 'guildId' },
-    { label: 'Topic', value: message.topicName, field: 'topic' },
-    { label: 'Thread ID', value: message.threadId || 'None', field: 'threadId' },
-    { label: 'Source Agent', value: message.metadata.sourceAgent, field: 'sourceAgent' },
-    { label: 'Target Agent', value: message.metadata.targetAgent || 'None', field: 'targetAgent' },
-    { label: 'Priority', value: message.metadata.priority.toString(), field: 'priority' },
-    { label: 'Retry Count', value: `${message.metadata.retryCount}/${message.metadata.maxRetries}`, field: 'retries' },
+    { label: 'Sender', value: message.sender?.name || message.sender?.id || 'unknown', field: 'sender' },
+    { label: 'Topics', value: topics, field: 'topics' },
+    { label: 'Thread ID', value: threadId, field: 'threadId' },
+    { label: 'Recipients', value: message.recipient_list?.map(r => r.name || r.id).join(', ') || 'None', field: 'recipients' },
+    { label: 'Priority', value: message.priority?.toString() || 'N/A', field: 'priority' },
+    { label: 'Format', value: message.format || 'unknown', field: 'format' },
+    { label: 'TTL', value: message.ttl ? `${message.ttl}s` : 'None', field: 'ttl' },
   ];
-  
+
   return (
     <div className="p-4 border-b">
       <h4 className="text-sm font-medium mb-3">Metadata</h4>
@@ -201,7 +219,7 @@ interface MessagePayloadProps {
 }
 
 function MessagePayload({ message, onCopy, copiedField }: MessagePayloadProps) {
-  // Display the entire payload object, not just payload.content
+  // Display the entire payload object
   const payloadString = JSON.stringify(message.payload, null, 2);
 
   return (
@@ -219,16 +237,20 @@ function MessagePayload({ message, onCopy, copiedField }: MessagePayloadProps) {
           )}
         </button>
       </div>
-      <div className="rounded overflow-hidden">
+      <div className="rounded-lg overflow-hidden border border-slate-700">
         <SyntaxHighlighter
           language="json"
-          style={tomorrow}
+          style={vscDarkPlus}
           customStyle={{
             margin: 0,
-            fontSize: '12px',
-            backgroundColor: 'hsl(var(--muted))',
+            fontSize: '14px',
+            lineHeight: '1.6',
+            padding: '1rem',
+            backgroundColor: '#1e1e1e',
+            fontFamily: "'Fira Code', 'JetBrains Mono', 'Cascadia Code', 'Consolas', 'Monaco', monospace",
           }}
           wrapLongLines={true}
+          showLineNumbers={false}
         >
           {payloadString}
         </SyntaxHighlighter>
@@ -242,39 +264,47 @@ interface MessageRoutingProps {
 }
 
 function MessageRouting({ message }: MessageRoutingProps) {
+  if (!message.routing_slip && (!message.recipient_list || message.recipient_list.length === 0)) {
+    return null;
+  }
+
   return (
     <div className="p-4 border-b">
       <h4 className="text-sm font-medium mb-3">Routing</h4>
       <div className="space-y-3">
         <div className="flex items-center space-x-2">
           <User className="w-4 h-4 text-muted-foreground" />
-          <span className="text-sm">{message.routing.source}</span>
-          {message.routing.destination && (
+          <span className="text-sm">{message.sender?.name || message.sender?.id || 'unknown'}</span>
+          {message.recipient_list && message.recipient_list.length > 0 && (
             <>
               <ArrowRight className="w-4 h-4 text-muted-foreground" />
-              <span className="text-sm">{message.routing.destination}</span>
+              <span className="text-sm">
+                {message.recipient_list.map(r => r.name || r.id).join(', ')}
+              </span>
             </>
           )}
         </div>
-        
-        {message.routing.hops.length > 0 && (
+
+        {message.routing_slip?.hops && message.routing_slip.hops.length > 0 && (
           <div>
             <p className="text-xs text-muted-foreground mb-2">Hops</p>
             <div className="space-y-2">
-              {message.routing.hops.map((hop, index) => (
+              {message.routing_slip.hops.map((hop, index) => (
                 <div key={index} className="flex items-center space-x-3 text-sm">
                   <span className="text-muted-foreground">
                     {new Date(hop.timestamp).toLocaleTimeString()}
                   </span>
-                  <span className="font-medium">{hop.agentId}</span>
-                  <span className={`text-xs px-2 py-0.5 rounded ${
-                    hop.action === 'forwarded' ? 'bg-blue-100 text-blue-700' :
-                    hop.action === 'processed' ? 'bg-green-100 text-green-700' :
-                    hop.action === 'rejected' ? 'bg-red-100 text-red-700' :
-                    'bg-gray-100 text-gray-700'
-                  }`}>
-                    {hop.action}
-                  </span>
+                  <span className="font-medium">{hop.agent_id || 'unknown'}</span>
+                  {hop.action && (
+                    <span className={`text-xs px-2 py-0.5 rounded ${
+                      hop.action === 'forwarded' ? 'bg-blue-100 text-blue-700' :
+                      hop.action === 'processed' ? 'bg-green-100 text-green-700' :
+                      hop.action === 'rejected' ? 'bg-red-100 text-red-700' :
+                      'bg-gray-100 text-gray-700'
+                    }`}>
+                      {hop.action}
+                    </span>
+                  )}
                 </div>
               ))}
             </div>
@@ -286,30 +316,32 @@ function MessageRouting({ message }: MessageRoutingProps) {
 }
 
 interface MessageErrorProps {
-  error: NonNullable<Message['error']>;
+  message: Message;
 }
 
-function MessageError({ error }: MessageErrorProps) {
+function MessageError({ message }: MessageErrorProps) {
+  // Find the last error in message history
+  const errorHistory = message.message_history?.filter(h => h.status === 'error') || [];
+  const lastError = errorHistory[errorHistory.length - 1];
+
+  if (!lastError && !message.is_error_message) {
+    return null;
+  }
+
   return (
     <div className="p-4 status-error-bg rounded-lg">
       <h4 className="text-sm font-medium status-error mb-2">Error Details</h4>
       <div className="space-y-2">
-        <div>
-          <p className="text-xs status-error">Code</p>
-          <p className="text-sm font-mono">{error.code}</p>
-        </div>
-        <div>
-          <p className="text-xs status-error">Message</p>
-          <p className="text-sm">{error.message}</p>
-        </div>
-        {error.stack && (
+        {lastError?.error_code && (
           <div>
-            <p className="text-xs status-error">Stack Trace</p>
-            <pre className="text-xs bg-muted p-2 rounded overflow-x-auto mt-1">
-              <code>{error.stack}</code>
-            </pre>
+            <p className="text-xs status-error">Code</p>
+            <p className="text-sm font-mono">{lastError.error_code}</p>
           </div>
         )}
+        <div>
+          <p className="text-xs status-error">Message</p>
+          <p className="text-sm">{lastError?.message || 'Error occurred during message processing'}</p>
+        </div>
       </div>
     </div>
   );
