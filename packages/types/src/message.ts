@@ -1,64 +1,80 @@
 import type { GemstoneID } from './gemstoneId.js';
+import type { AgentTag, ProcessEntry } from './agent.js';
+import type { RoutingSlip, ForwardHeader } from './routing.js';
 
-export type MessageStatus = 
-  | 'pending'
-  | 'processing'
-  | 'success'
-  | 'error'
-  | 'timeout'
-  | 'rejected';
+// Process status enum
+export type ProcessStatus = 'running' | 'error' | 'completed';
 
+// Priority levels (matching RusticAI's Priority enum)
+export type Priority = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7;
+
+// JSON dictionary type
+export type JsonDict = Record<string, any>;
+
+/**
+ * Main Message type - 1-1 mapping with RusticAI's Message class
+ */
 export interface Message {
-  id: GemstoneID;
-  guildId: string;
-  topicName: string;
-  threadId?: string;
-  parentMessageId?: string;
-  payload: {
-    type: string;
-    content: unknown;
-    encoding?: 'json' | 'base64' | 'plain';
-  };
-  metadata: {
-    sourceAgent: string;
-    targetAgent?: string;
-    timestamp: Date;
-    ttl?: number;
-    priority: number;
-    retryCount: number;
-    maxRetries: number;
-  };
-  routing: {
-    source: string;
-    destination?: string;
-    hops: Array<{
-      agentId: string;
-      timestamp: Date;
-      action: 'received' | 'processed' | 'forwarded' | 'rejected';
-    }>;
-  };
-  status: {
-    current: MessageStatus;
-    history: Array<{
-      status: MessageStatus;
-      timestamp: Date;
-      reason?: string;
-      agentId?: string;
-    }>;
-  };
-  error?: {
-    code: string;
-    message: string;
-    stack?: string;
-    timestamp: Date;
-  };
+  // Core identification (computed from GemstoneID)
+  id: number;
+  priority: Priority;
+  timestamp: number;
+
+  // Sender information
+  sender: AgentTag;
+
+  // Topic information
+  topics: string | string[];
+  topic_published_to?: string;
+
+  // Recipients
+  recipient_list: AgentTag[];
+
+  // Message content
+  payload: JsonDict;
+  format: string;
+
+  // Threading information
+  in_response_to?: number;
+  thread: number[];
+  conversation_id?: number;
+
+  // Forwarding
+  forward_header?: ForwardHeader;
+
+  // Routing
+  routing_slip?: RoutingSlip;
+
+  // Message history
+  message_history: ProcessEntry[];
+
+  // TTL and enrichment
+  ttl?: number;
+  enrich_with_history?: number;
+
+  // Error and status
+  is_error_message: boolean;
+  process_status?: ProcessStatus;
+
+  // Tracing
+  traceparent?: string;
+
+  // Session state
+  session_state?: JsonDict;
+
+  // Computed properties (from thread array)
+  current_thread_id?: number; // thread[-1]
+  root_thread_id?: number; // thread[0]
 }
 
+/**
+ * MessageFilter for searching messages
+ */
 export interface MessageFilter {
   guildId?: string;
   topicName?: string;
   threadId?: string;
-  status?: MessageStatus[];
+  status?: ProcessStatus[];
   agentId?: string;
   timeRange?: {
     start: Date;
@@ -68,3 +84,10 @@ export interface MessageFilter {
   limit?: number;
   offset?: number;
 }
+
+/**
+ * Message constants
+ */
+export const MessageConstants = {
+  RAW_JSON_FORMAT: 'generic_json'
+} as const;

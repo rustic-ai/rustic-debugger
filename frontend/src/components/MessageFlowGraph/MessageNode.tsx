@@ -29,27 +29,12 @@ export function MessageNode({ data }: NodeProps<MessageNodeData>) {
 
   // Helper function to get message format class name
   const getMessageFormatClassName = (message: Message) => {
-    // Handle both parsed and stringified payload
-    let messageFormat = 'Unknown';
-
-    if (typeof message.payload === 'string') {
-      try {
-        const parsed = JSON.parse(message.payload);
-        messageFormat = parsed.message_format;
-      } catch (e) {
-        // If parsing fails, return Unknown
-        return 'Unknown';
-      }
-    } else if (message.payload?.message_format) {
-      messageFormat = message.payload.message_format;
-    }
-
-    if (!messageFormat || messageFormat === 'Unknown') {
+    if (!message.format) {
       return 'Unknown';
     }
 
     // Split by dot and get the last element (class name)
-    const parts = messageFormat.split('.');
+    const parts = message.format.split('.');
     return parts[parts.length - 1];
   };
 

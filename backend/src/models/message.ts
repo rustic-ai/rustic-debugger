@@ -1,4 +1,4 @@
-import type { Message, MessageFilter, MessageStatus } from '@rustic-debug/types';
+import type { Message, MessageFilter, ProcessStatus, Priority } from '@rustic-debug/types';
 import { getRedisClients } from '../services/redis/connection.js';
 import { gemstoneId } from '../utils/gemstoneId.js';
 import { config } from '../config/index.js';
@@ -6,20 +6,27 @@ import { config } from '../config/index.js';
 export class MessageModel {
   async findById(messageId: string): Promise<Message | null> {
     const { command: redis } = await getRedisClients();
-    
+
     // Search for message across all guilds
     const keys = await redis.keys(`msg:*:${messageId}`);
-    
+
     if (!keys.length) {
       return null;
     }
-    
-    const data = await redis.hgetall(keys[0]);
-    if (!Object.keys(data).length) {
+
+    const data = await redis.get(keys[0]);
+    if (!data) {
       return null;
     }
-    
-    return this.deserialize(messageId, data);
+
+    try {
+      const rawMessage = JSON.parse(data);
+      // Parse the message as RusticAI format
+      return this.transformRusticMessage(rawMessage);
+    } catch (e) {
+      console.error('Error parsing message:', e);
+      return null;
+    }
   }
 
   async findByFilter(filter: MessageFilter): Promise<{
@@ -39,117 +46,122 @@ export class MessageModel {
       limit = 100,
       offset = 0,
     } = filter;
-    
+
     // Validate time range (7-day retention)
     if (timeRange?.start) {
       const sevenDaysAgo = new Date();
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - config.messageRetentionDays);
-      
+
       if (timeRange.start < sevenDaysAgo) {
         throw new Error(`Time range exceeds ${config.messageRetentionDays} day retention window`);
       }
     }
-    
-    let messageIds: string[] = [];
-    
-    // If we have guildId and topicName, use the sorted set
-    if (guildId && topicName) {
-      const topicKey = `${guildId}:${topicName}`;
+
+    let allMessages: Message[] = [];
+
+    // If we have topicName, use the sorted set
+    if (topicName) {
       const min = timeRange?.start?.getTime() || '-inf';
       const max = timeRange?.end?.getTime() || '+inf';
 
-      // The sorted set contains full JSON messages, not IDs
-      const messages = await redis.zrangebyscore(
-        topicKey,
+      // The sorted set contains full JSON messages
+      const rawMessages = await redis.zrangebyscore(
+        topicName,
         min,
-        max,
-        'LIMIT',
-        offset,
-        limit + 1 // Get one extra to check hasMore
+        max
       );
 
-      // Parse messages directly and return
-      const hasMore = messages.length > limit;
-      const resultMessages = messages.slice(0, limit).map(msgJson => {
+      // Parse messages
+      for (const msgJson of rawMessages) {
         try {
           const rawMessage = JSON.parse(msgJson);
-          // Transform RusticAI message to our Message type
-          return this.transformRusticMessage(rawMessage, guildId, topicName);
+          const message = this.transformRusticMessage(rawMessage);
+          if (message) {
+            allMessages.push(message);
+          }
         } catch (e) {
-          return null;
+          console.error('Error parsing message from topic:', e);
         }
-      }).filter(Boolean) as Message[];
-
-      return {
-        messages: resultMessages,
-        total: await redis.zcard(topicKey),
-        hasMore,
-      };
+      }
     } else if (guildId) {
       // Get all topics for the guild and search
-      const topicKeys = await redis.keys(`${guildId}:*`);
-      
+      // In RusticAI, topics are just keys in Redis
+      // We need to scan for all topic keys
+      const topicKeys = await redis.keys('*'); // This should be optimized in production
+
       for (const topicKey of topicKeys) {
+        // Skip non-topic keys (like msg:* keys)
+        if (topicKey.startsWith('msg:')) continue;
+
         const min = timeRange?.start?.getTime() || '-inf';
         const max = timeRange?.end?.getTime() || '+inf';
-        
-        const ids = await redis.zrangebyscore(topicKey, min, max);
-        messageIds.push(...ids);
-      }
-      
-      // Sort and paginate
-      messageIds = messageIds.slice(offset, offset + limit + 1);
-    } else {
-      // No efficient way to search without guildId
-      // In production, we'd use a search index
-      throw new Error('guildId is required for message search');
-    }
-    
-    const hasMore = messageIds.length > limit;
-    const paginatedIds = messageIds.slice(0, limit);
-    const messages: Message[] = [];
-    
-    // Fetch message details
-    for (const messageId of paginatedIds) {
-      const msgKey = guildId ? `msg:${guildId}:${messageId}` : '';
-      const data = await redis.hgetall(msgKey);
-      
-      if (Object.keys(data).length) {
-        const message = this.deserialize(messageId, data);
-        
-        // Apply filters
-        let include = true;
-        
-        if (status && status.length && !status.includes(message.status.current)) {
-          include = false;
-        }
-        
-        if (agentId && message.metadata.sourceAgent !== agentId && 
-            message.metadata.targetAgent !== agentId) {
-          include = false;
-        }
-        
-        if (threadId && message.threadId !== threadId) {
-          include = false;
-        }
-        
-        if (searchText) {
-          const searchLower = searchText.toLowerCase();
-          const payloadStr = JSON.stringify(message.payload.content).toLowerCase();
-          if (!payloadStr.includes(searchLower)) {
-            include = false;
+
+        try {
+          const rawMessages = await redis.zrangebyscore(topicKey, min, max);
+          for (const msgJson of rawMessages) {
+            try {
+              const rawMessage = JSON.parse(msgJson);
+              const message = this.transformRusticMessage(rawMessage);
+              if (message) {
+                allMessages.push(message);
+              }
+            } catch (e) {
+              // Skip invalid messages
+            }
           }
-        }
-        
-        if (include) {
-          messages.push(message);
+        } catch (e) {
+          // Skip if not a sorted set
         }
       }
     }
-    
+
+    // Apply filters
+    let filteredMessages = allMessages;
+
+    if (status && status.length) {
+      filteredMessages = filteredMessages.filter(msg => {
+        const msgStatus = msg.process_status || (msg.is_error_message ? 'error' : 'completed');
+        return status.includes(msgStatus as ProcessStatus);
+      });
+    }
+
+    if (agentId) {
+      filteredMessages = filteredMessages.filter(msg =>
+        msg.sender.id === agentId ||
+        msg.sender.name === agentId ||
+        msg.recipient_list?.some(r => r.id === agentId || r.name === agentId)
+      );
+    }
+
+    if (threadId) {
+      const threadIdNum = parseInt(threadId);
+      filteredMessages = filteredMessages.filter(msg =>
+        msg.thread?.includes(threadIdNum) ||
+        msg.current_thread_id === threadIdNum ||
+        msg.root_thread_id === threadIdNum
+      );
+    }
+
+    if (searchText) {
+      const searchLower = searchText.toLowerCase();
+      filteredMessages = filteredMessages.filter(msg => {
+        const payloadStr = JSON.stringify(msg.payload).toLowerCase();
+        const formatStr = msg.format?.toLowerCase() || '';
+        return payloadStr.includes(searchLower) || formatStr.includes(searchLower);
+      });
+    }
+
+    // Sort by timestamp (newest first)
+    filteredMessages.sort((a, b) => b.timestamp - a.timestamp);
+
+    // Paginate
+    const total = filteredMessages.length;
+    const hasMore = (offset + limit) < total;
+    const paginatedMessages = filteredMessages.slice(offset, offset + limit);
+
     return {
-      messages,
-      total: messages.length + (hasMore ? 1 : 0),
+      messages: paginatedMessages,
+      total,
       hasMore,
     };
   }
@@ -173,95 +185,93 @@ export class MessageModel {
       start: options.start ? new Date(options.start) : undefined,
       end: options.end ? new Date(options.end) : undefined,
     };
-    
+
     return this.findByFilter({
       guildId,
       topicName,
-      status: options.status as MessageStatus[],
+      status: options.status as ProcessStatus[],
       timeRange: timeRange.start && timeRange.end ? timeRange as { start: Date; end: Date } : undefined,
       limit: options.limit,
       offset: options.offset,
     });
   }
 
-  private transformRusticMessage(rawMessage: any, guildId: string, topicName: string): Message {
-    // Transform RusticAI message format to our Message type
-    return {
-      id: {
-        id: String(rawMessage.id || gemstoneId.generate()),
-        timestamp: rawMessage.timestamp || Date.now(),
-        priority: rawMessage.priority || 0,
-        counter: 0
-      },
-      guildId,
-      topicName,
-      threadId: rawMessage.thread?.[0] ? String(rawMessage.thread[0]) : undefined,
-      parentMessageId: rawMessage.in_response_to ? String(rawMessage.in_response_to) : undefined,
-      payload: rawMessage.payload || { content: '' },
-      metadata: {
-        sourceAgent: rawMessage.sender?.id || 'unknown',
-        targetAgent: rawMessage.recipient_list?.[0]?.id,
-        timestamp: new Date(rawMessage.timestamp || Date.now()),
-        priority: rawMessage.priority || 0,
-        retryCount: 0,
-        maxRetries: 3
-      },
-      routing: {
-        source: rawMessage.sender?.id || 'unknown',
-        destination: rawMessage.recipient_list?.[0]?.id,
-        hops: []
-      },
-      status: {
-        current: rawMessage.is_error_message ? 'error' : 'success',
-        history: [{
-          status: rawMessage.is_error_message ? 'error' : 'success',
-          timestamp: new Date(rawMessage.timestamp || Date.now())
-        }]
-      },
-      error: rawMessage.is_error_message ? {
-        code: 'MESSAGE_ERROR',
-        message: 'Message marked as error',
-        timestamp: new Date(rawMessage.timestamp || Date.now())
-      } : undefined
-    };
-  }
+  /**
+   * Transform a RusticAI message to our TypeScript Message type
+   * This maps 1-1 with the Python Message class structure
+   */
+  private transformRusticMessage(rawMessage: any): Message | null {
+    try {
+      // Handle both raw message and already parsed format
+      if (typeof rawMessage === 'string') {
+        rawMessage = JSON.parse(rawMessage);
+      }
 
-  private deserialize(messageId: string, data: Record<string, string>): Message {
-    const payload = JSON.parse(data.payload || '{}');
-    const metadata = JSON.parse(data.metadata || '{}');
-    const routing = JSON.parse(data.routing || '{}');
-    const status = JSON.parse(data.status || '{}');
-    const error = data.error ? JSON.parse(data.error) : undefined;
-    
-    return {
-      id: gemstoneId.parse(messageId),
-      guildId: data.guildId,
-      topicName: data.topicName,
-      threadId: data.threadId,
-      parentMessageId: data.parentMessageId,
-      payload,
-      metadata: {
-        ...metadata,
-        timestamp: new Date(metadata.timestamp),
-      },
-      routing: {
-        ...routing,
-        hops: routing.hops.map((hop: any) => ({
-          ...hop,
-          timestamp: new Date(hop.timestamp),
-        })),
-      },
-      status: {
-        ...status,
-        history: status.history.map((item: any) => ({
-          ...item,
-          timestamp: new Date(item.timestamp),
-        })),
-      },
-      error: error ? {
-        ...error,
-        timestamp: new Date(error.timestamp),
-      } : undefined,
-    };
+      // Build thread array from current_thread_id if not present
+      const thread = rawMessage.thread ||
+        (rawMessage.current_thread_id ? [rawMessage.current_thread_id] :
+         (rawMessage.id ? [rawMessage.id] : []));
+
+      // Map to our Message type (1-1 with Python)
+      const message: Message = {
+        // Core identification
+        id: rawMessage.id,
+        priority: (rawMessage.priority ?? 4) as Priority,
+        timestamp: rawMessage.timestamp || Date.now(),
+
+        // Sender
+        sender: rawMessage.sender || { name: 'unknown' },
+
+        // Topics
+        topics: rawMessage.topics || rawMessage.topic || '',
+        topic_published_to: rawMessage.topic_published_to,
+
+        // Recipients
+        recipient_list: rawMessage.recipient_list || [],
+
+        // Payload and format
+        payload: rawMessage.payload || {},
+        format: rawMessage.format ||
+          rawMessage.payload?.message_format ||
+          'generic_json',
+
+        // Threading
+        in_response_to: rawMessage.in_response_to,
+        thread: thread,
+        conversation_id: rawMessage.conversation_id,
+
+        // Computed thread properties
+        current_thread_id: thread[thread.length - 1],
+        root_thread_id: thread[0],
+
+        // Forwarding
+        forward_header: rawMessage.forward_header,
+
+        // Routing
+        routing_slip: rawMessage.routing_slip,
+
+        // History
+        message_history: rawMessage.message_history || [],
+
+        // TTL and enrichment
+        ttl: rawMessage.ttl,
+        enrich_with_history: rawMessage.enrich_with_history,
+
+        // Status
+        is_error_message: rawMessage.is_error_message || false,
+        process_status: rawMessage.process_status,
+
+        // Tracing
+        traceparent: rawMessage.traceparent,
+
+        // Session
+        session_state: rawMessage.session_state,
+      };
+
+      return message;
+    } catch (e) {
+      console.error('Error transforming RusticAI message:', e);
+      return null;
+    }
   }
 }
