@@ -1,8 +1,8 @@
 import { NavLink } from 'react-router-dom';
-import { 
-  LayoutDashboard, 
-  Bug, 
-  Download, 
+import {
+  LayoutDashboard,
+  Bug,
+  Download,
   Settings,
   Database
 } from 'lucide-react';
@@ -15,28 +15,38 @@ const navItems = [
   { to: '/settings', label: 'Settings', icon: Settings },
 ];
 
-export function Sidebar() {
+interface SidebarProps {
+  isCollapsed?: boolean;
+}
+
+export function Sidebar({ isCollapsed = false }: SidebarProps) {
   return (
-    <aside className="w-64 border-r bg-card">
-      <nav className="p-4 space-y-2">
-        {navItems.map((item) => (
-          <NavLink
-            key={item.to}
-            to={item.to}
-            className={({ isActive }) => `
-              flex items-center space-x-3 px-3 py-2 rounded-lg
-              transition-colors duration-150
-              ${isActive 
-                ? 'bg-primary text-primary-foreground' 
-                : 'hover:bg-muted text-foreground'
-              }
-            `}
-          >
-            <item.icon className="w-5 h-5" />
-            <span>{item.label}</span>
-          </NavLink>
-        ))}
-      </nav>
-    </aside>
+    <nav className="p-4 space-y-2">
+      {navItems.map((item) => (
+        <NavLink
+          key={item.to}
+          to={item.to}
+          className={({ isActive }) => `
+            flex items-center ${isCollapsed ? 'justify-center' : 'space-x-3'} px-3 py-2 rounded-lg
+            transition-colors duration-150 group relative
+            ${isActive
+              ? 'bg-primary text-primary-foreground'
+              : 'hover:bg-muted text-foreground'
+            }
+          `}
+          title={isCollapsed ? item.label : undefined}
+        >
+          <item.icon className="w-5 h-5 flex-shrink-0" />
+          {!isCollapsed && <span>{item.label}</span>}
+
+          {/* Tooltip for collapsed state */}
+          {isCollapsed && (
+            <div className="absolute left-full ml-2 px-2 py-1 bg-popover text-popover-foreground text-sm rounded-md shadow-md invisible group-hover:visible whitespace-nowrap z-50">
+              {item.label}
+            </div>
+          )}
+        </NavLink>
+      ))}
+    </nav>
   );
 }

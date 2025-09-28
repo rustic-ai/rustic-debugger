@@ -1,7 +1,7 @@
 import { ReactNode, useState, useEffect } from 'react';
 import { Header } from './Header';
 import { Sidebar } from './Sidebar';
-import { Menu, X } from 'lucide-react';
+import { Menu, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { wsClient } from '@/services/websocket/client';
 
@@ -11,6 +11,7 @@ interface LayoutProps {
 
 export function Layout({ children }: LayoutProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const isDesktop = useMediaQuery('(min-width: 1024px)');
 
   // Initialize WebSocket connection
@@ -40,10 +41,25 @@ export function Layout({ children }: LayoutProps) {
         <aside className={`
           ${isDesktop ? 'relative' : 'fixed inset-y-0 left-0 z-40'}
           ${!isDesktop && !mobileMenuOpen ? '-translate-x-full' : 'translate-x-0'}
-          transition-transform duration-300 ease-in-out
-          w-64 bg-card border-r h-full
+          transition-all duration-300 ease-in-out
+          ${sidebarCollapsed && isDesktop ? 'w-16' : 'w-64'} bg-card border-r h-full
         `}>
-          <Sidebar />
+          {/* Desktop sidebar toggle button */}
+          {isDesktop && (
+            <button
+              onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+              className="absolute -right-3 top-6 z-10 p-1.5 bg-card border border-border rounded-full shadow-md hover:bg-muted transition-colors"
+              aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            >
+              {sidebarCollapsed ? (
+                <ChevronRight className="w-4 h-4" />
+              ) : (
+                <ChevronLeft className="w-4 h-4" />
+              )}
+            </button>
+          )}
+
+          <Sidebar isCollapsed={sidebarCollapsed && isDesktop} />
         </aside>
         
         {/* Mobile overlay */}
