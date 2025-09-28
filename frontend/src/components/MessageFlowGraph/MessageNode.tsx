@@ -1,0 +1,119 @@
+import { Handle, Position, NodeProps } from 'reactflow';
+import type { Message } from '@rustic-debug/types';
+import { Clock, Hash, Code } from 'lucide-react';
+
+interface MessageNodeData {
+  message: Message;
+  color: string;
+  isSelected?: boolean;
+  isFromSelectedTopic?: boolean;
+  onSelect?: (messageId: string) => void;
+}
+
+export function MessageNode({ data }: NodeProps<MessageNodeData>) {
+  const { message, color, isSelected, isFromSelectedTopic, onSelect } = data;
+  const msgId = typeof message.id === 'string' ? message.id : message.id.id;
+
+  // Format timestamp
+  const timestamp = message.metadata.timestamp;
+  const date = timestamp instanceof Date ? timestamp : new Date(timestamp);
+  const timeStr = date.toLocaleTimeString('en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  });
+
+  const agentName = message.metadata.sourceAgent;
+  const topicName = message.topicName;
+
+  // Helper function to get message format class name
+  const getMessageFormatClassName = (message: Message) => {
+    // Handle both parsed and stringified payload
+    let messageFormat = 'Unknown';
+
+    if (typeof message.payload === 'string') {
+      try {
+        const parsed = JSON.parse(message.payload);
+        messageFormat = parsed.message_format;
+      } catch (e) {
+        // If parsing fails, return Unknown
+        return 'Unknown';
+      }
+    } else if (message.payload?.message_format) {
+      messageFormat = message.payload.message_format;
+    }
+
+    if (!messageFormat || messageFormat === 'Unknown') {
+      return 'Unknown';
+    }
+
+    // Split by dot and get the last element (class name)
+    const parts = messageFormat.split('.');
+    return parts[parts.length - 1];
+  };
+
+  return (
+    <div
+      className={`
+        bg-card border-2 rounded-lg p-3 min-w-[220px] max-w-[280px]
+        ${isSelected ? 'border-primary ring-2 ring-primary/50' : 'border-border'}
+        hover:shadow-lg transition-all cursor-pointer
+        ${isFromSelectedTopic === false ? 'opacity-40' : ''}
+        ${isFromSelectedTopic === true ? 'ring-2 ring-accent/30' : ''}
+      `}
+      onClick={() => onSelect?.(msgId)}
+      style={{
+        borderLeftColor: color,
+        borderLeftWidth: '4px',
+      }}
+    >
+      <Handle type="target" position={Position.Top} />
+
+      {/* Header */}
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-1">
+          <div
+            className="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-xs"
+            style={{ backgroundColor: color }}
+          >
+            {agentName.substring(0, 2).toUpperCase()}
+          </div>
+          <span className="text-xs font-medium truncate max-w-[100px]">
+            {agentName}
+          </span>
+        </div>
+        <span className="text-xs text-muted-foreground flex items-center gap-1">
+          <Clock className="w-3 h-3" />
+          {timeStr}
+        </span>
+      </div>
+
+      {/* Message Format - Prominent */}
+      <div className="flex items-center gap-1 mb-2 px-2 py-1 bg-primary/10 rounded-md border-l-2 border-primary/40">
+        <Code className="w-3 h-3 text-primary" />
+        <span className="text-xs font-semibold text-primary truncate">{getMessageFormatClassName(message)}</span>
+      </div>
+
+      {/* Topic */}
+      <div className="flex items-center gap-1 mb-2 text-xs text-muted-foreground">
+        <Hash className="w-3 h-3" />
+        <span className="truncate">{topicName}</span>
+      </div>
+
+      {/* Message ID */}
+      <div className="text-xs text-muted-foreground font-mono truncate">
+        ID: {msgId.substring(0, 12)}...
+      </div>
+
+      {/* Thread indicator */}
+      {message.parentMessageId && (
+        <div className="text-xs text-muted-foreground mt-1">
+          ↩ Response to: {message.parentMessageId.substring(0, 8)}...
+        </div>
+      )}
+
+      <Handle type="source" position={Position.Bottom} />
+    </div>
+  );
+}

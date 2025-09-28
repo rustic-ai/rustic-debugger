@@ -39,4 +39,34 @@ lerna-debug.log*
 .tmp/
 .temp/
 
+# Symlinked RusticAI directory (reference only)
 rustic-ai/
+
+# Vite cache
+.vite/
+
+# Next.js
+.next/
+out/
+
+# Storybook
+storybook-static/
+
+# Testing
+*.test.js.map
+*.spec.js.map
+e2e-results/
+playwright-report/
+test-results/
+
+# Package manager lock files (keep pnpm-lock.yaml)
+yarn.lock
+package-lock.json
+
+# OS files
+Thumbs.db
+*.swp
+*~
+
+# Docker
+docker-compose.override.yml

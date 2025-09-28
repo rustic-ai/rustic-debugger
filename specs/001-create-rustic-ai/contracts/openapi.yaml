@@ -1,0 +1,543 @@
+openapi: 3.0.3
+info:
+  title: Redis Messaging Debugger API
+  description: API for visualizing and debugging RusticAI message flow through Redis
+  version: 1.0.0
+  
+servers:
+  - url: http://localhost:3000
+    description: Development server
+
+paths:
+  /health:
+    get:
+      summary: Health check endpoint
+      operationId: getHealth
+      tags:
+        - System
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /guilds:
+    get:
+      summary: List all guild namespaces
+      operationId: getGuilds
+      tags:
+        - Guilds
+      responses:
+        '200':
+          description: List of guilds with activity metrics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Guild'
+                  timestamp:
+                    type: string
+                    format: date-time
+
+  /guilds/{guildId}/topics:
+    get:
+      summary: List topics within a guild
+      operationId: getGuildTopics
+      tags:
+        - Topics
+      parameters:
+        - name: guildId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Guild namespace identifier
+      responses:
+        '200':
+          description: List of topics with metrics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Topic'
+                  timestamp:
+                    type: string
+                    format: date-time
+        '404':
+          description: Guild not found
+
+  /guilds/{guildId}/topics/{topicName}/messages:
+    get:
+      summary: Get messages for a specific topic
+      operationId: getTopicMessages
+      tags:
+        - Messages
+      parameters:
+        - name: guildId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: topicName
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+            default: 100
+        - name: sinceId
+          in: query
+          schema:
+            type: string
+          description: GemstoneID to fetch messages after
+        - name: minutes
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 10080  # 7 days
+            default: 60
+          description: Time window in minutes
+      responses:
+        '200':
+          description: Paginated list of messages
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedMessages'
+
+  /messages/{messageId}:
+    get:
+      summary: Get a specific message by ID
+      operationId: getMessage
+      tags:
+        - Messages
+      parameters:
+        - name: messageId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: GemstoneID of the message
+      responses:
+        '200':
+          description: Message details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+        '404':
+          description: Message not found
+
+  /replay:
+    post:
+      summary: Replay messages (feature-flagged)
+      operationId: replayMessages
+      tags:
+        - Messages
+      security:
+        - featureFlag: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - messageIds
+              properties:
+                messageIds:
+                  type: array
+                  items:
+                    type: string
+                  minItems: 1
+                  maxItems: 100
+                targetTopic:
+                  type: string
+                delayMs:
+                  type: integer
+                  minimum: 0
+                  default: 0
+      responses:
+        '202':
+          description: Replay accepted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  replayId:
+                    type: string
+                  messageCount:
+                    type: integer
+                  status:
+                    type: string
+                    enum: [queued, processing]
+        '403':
+          description: Feature not enabled
+
+  /export:
+    post:
+      summary: Export filtered messages
+      operationId: exportMessages
+      tags:
+        - Export
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExportRequest'
+      responses:
+        '200':
+          description: JSON export file
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  messages:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Message'
+                  metadata:
+                    type: object
+                    properties:
+                      exportTime:
+                        type: string
+                        format: date-time
+                      filters:
+                        $ref: '#/components/schemas/FilterCriteria'
+                      totalCount:
+                        type: integer
+        '400':
+          description: Invalid filter criteria
+
+components:
+  schemas:
+    HealthResponse:
+      type: object
+      required:
+        - status
+        - version
+        - redis
+      properties:
+        status:
+          type: string
+          enum: [healthy, degraded, unhealthy]
+        version:
+          type: string
+        redis:
+          type: object
+          properties:
+            connected:
+              type: boolean
+            latencyMs:
+              type: number
+        timestamp:
+          type: string
+          format: date-time
+
+    Guild:
+      type: object
+      required:
+        - id
+        - name
+        - topicCount
+        - messageRate
+        - status
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        topicCount:
+          type: integer
+        messageRate:
+          type: number
+        lastActivity:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [active, idle, inactive]
+
+    Topic:
+      type: object
+      required:
+        - id
+        - guildId
+        - name
+        - subscriberCount
+        - messageCount
+        - messageRate
+        - errorRate
+      properties:
+        id:
+          type: string
+        guildId:
+          type: string
+        name:
+          type: string
+        subscriberCount:
+          type: integer
+        messageCount:
+          type: integer
+        messageRate:
+          type: number
+        errorRate:
+          type: number
+        lastMessage:
+          type: string
+          format: date-time
+
+    Message:
+      type: object
+      required:
+        - id
+        - guildId
+        - topicId
+        - timestamp
+        - type
+        - payload
+        - sender
+        - routing
+        - status
+        - version
+      properties:
+        id:
+          type: string
+        guildId:
+          type: string
+        topicId:
+          type: string
+        threadId:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        type:
+          type: string
+        payload:
+          type: object
+        sender:
+          $ref: '#/components/schemas/AgentIdentifier'
+        routing:
+          $ref: '#/components/schemas/RoutingSlip'
+        status:
+          $ref: '#/components/schemas/ProcessStatus'
+        error:
+          $ref: '#/components/schemas/ErrorInfo'
+        ttl:
+          type: integer
+        tags:
+          type: array
+          items:
+            type: string
+        version:
+          type: string
+
+    AgentIdentifier:
+      type: object
+      required:
+        - id
+        - name
+        - type
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        type:
+          type: string
+
+    ProcessStatus:
+      type: string
+      enum:
+        - PENDING
+        - PROCESSING
+        - SUCCESS
+        - ERROR
+        - TIMEOUT
+        - SKIPPED
+        - RETRY
+
+    RoutingSlip:
+      type: object
+      required:
+        - entries
+        - currentIndex
+      properties:
+        entries:
+          type: array
+          items:
+            $ref: '#/components/schemas/RoutingEntry'
+        currentIndex:
+          type: integer
+
+    RoutingEntry:
+      type: object
+      required:
+        - agentId
+        - topicId
+        - timestamp
+        - status
+      properties:
+        agentId:
+          type: string
+        topicId:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        duration:
+          type: integer
+        status:
+          $ref: '#/components/schemas/ProcessStatus'
+        error:
+          type: string
+
+    ErrorInfo:
+      type: object
+      required:
+        - code
+        - message
+        - timestamp
+        - retryable
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        stack:
+          type: string
+        context:
+          type: object
+        timestamp:
+          type: string
+          format: date-time
+        retryable:
+          type: boolean
+        retryCount:
+          type: integer
+
+    FilterCriteria:
+      type: object
+      properties:
+        guildId:
+          type: string
+        topicIds:
+          type: array
+          items:
+            type: string
+        agentIds:
+          type: array
+          items:
+            type: string
+        status:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProcessStatus'
+        timeRange:
+          type: object
+          properties:
+            start:
+              type: string
+              format: date-time
+            end:
+              type: string
+              format: date-time
+        searchText:
+          type: string
+          maxLength: 200
+        threadId:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 10000
+
+    ExportRequest:
+      type: object
+      required:
+        - filters
+        - format
+      properties:
+        filters:
+          $ref: '#/components/schemas/FilterCriteria'
+        format:
+          type: string
+          enum: [json]
+        fields:
+          type: array
+          items:
+            type: string
+        includeRouting:
+          type: boolean
+          default: true
+        includeThreads:
+          type: boolean
+          default: false
+        filename:
+          type: string
+
+    PaginatedMessages:
+      type: object
+      required:
+        - data
+        - pagination
+        - timestamp
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Message'
+        pagination:
+          type: object
+          required:
+            - page
+            - pageSize
+            - total
+            - hasNext
+            - hasPrev
+          properties:
+            page:
+              type: integer
+            pageSize:
+              type: integer
+            total:
+              type: integer
+            hasNext:
+              type: boolean
+            hasPrev:
+              type: boolean
+        timestamp:
+          type: string
+          format: date-time
+
+  securitySchemes:
+    featureFlag:
+      type: apiKey
+      in: header
+      name: X-Feature-Replay
