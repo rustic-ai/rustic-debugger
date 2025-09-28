@@ -25,27 +25,34 @@ describe('Backend API Integration Tests', () => {
   
   describe('Guild Operations', () => {
     it('should discover guilds from Redis patterns', async () => {
-      // Seed Redis with guild data
+      // Seed Redis with topic data (guilds are discovered from topics in RusticAI)
       const redis = app.redis.command;
-      
-      await redis.hset('guild:test-guild-1', 
-        'name', 'Test Guild 1',
-        'status', 'active',
-        'description', 'Test guild description',
-        'namespace', 'test',
-        'createdAt', new Date().toISOString(),
-        'updatedAt', new Date().toISOString()
-      );
-      
-      // Add guild ID to the guilds set
-      await redis.sadd('guilds', 'test-guild-1');
-      
+      const timestamp = Date.now();
+
+      // Create a topic sorted set with a message (RusticAI pattern)
+      const message = {
+        id: 111,
+        priority: 4,
+        timestamp: timestamp,
+        sender: { name: 'system' },
+        topics: 'test_guild_1:general',
+        recipient_list: [],
+        payload: { type: 'init' },
+        format: 'init_message',
+        thread: [111],
+        message_history: [],
+        is_error_message: false
+      };
+
+      // Topics are named as "guildId:topicName" in RusticAI
+      await redis.zadd('test_guild_1:general', timestamp, JSON.stringify(message));
+
       // Test guild discovery
       const response = await app.inject({
         method: 'GET',
         url: '/guilds',
       });
-      
+
       expect(response.statusCode).toBe(200);
       const body = JSON.parse(response.body);
       expect(body.success).toBe(true);
@@ -54,28 +61,39 @@ describe('Backend API Integration Tests', () => {
     });
     
     it('should get guild by ID', async () => {
-      // Seed Redis with guild data
+      // Seed Redis with topic for the guild
       const redis = app.redis.command;
-      const guildId = 'test-guild-123';
-      
-      await redis.hset(`guild:${guildId}`,
-        'name', 'Specific Guild',
-        'status', 'active',
-        'namespace', 'test',
-        'createdAt', new Date().toISOString(),
-        'updatedAt', new Date().toISOString()
-      );
-      
+      const guildId = 'test_guild_123';
+      const timestamp = Date.now();
+
+      // Create topics for this guild
+      const message = {
+        id: 112,
+        priority: 4,
+        timestamp: timestamp,
+        sender: { name: 'system' },
+        topics: `${guildId}:announcements`,
+        recipient_list: [],
+        payload: { type: 'init' },
+        format: 'init_message',
+        thread: [112],
+        message_history: [],
+        is_error_message: false
+      };
+
+      await redis.zadd(`${guildId}:announcements`, timestamp, JSON.stringify(message));
+
       // Test get guild by ID
       const response = await app.inject({
         method: 'GET',
         url: `/guilds/${guildId}`,
       });
-      
+
       expect(response.statusCode).toBe(200);
-      const guild: Guild = JSON.parse(response.body);
-      expect(guild.name).toBe('Specific Guild');
-      expect(guild.id.id).toBe(guildId);
+      const body = JSON.parse(response.body);
+      expect(body.success).toBe(true);
+      expect(body.data.name).toBe('Test Guild 123');
+      expect(body.data.namespace).toBe(guildId);
     });
     
     it('should return 404 for non-existent guild', async () => {
@@ -93,118 +111,90 @@ describe('Backend API Integration Tests', () => {
   
   describe('Topic Operations', () => {
     beforeEach(async () => {
-      // Seed guild for topic tests
-      const redis = app.redis.command;
-      
-      await redis.hset('guild:test-guild',
-        'name', 'Test Guild',
-        'status', 'active',
-        'namespace', 'test',
-        'createdAt', new Date().toISOString(),
-        'updatedAt', new Date().toISOString()
-      );
+      // No need to seed guild hashes - guilds are discovered from topics
     });
     
     it('should list topics for a guild', async () => {
       const redis = app.redis.command;
-      const guildId = 'test-guild';
-      
-      // Create the topic sorted set with a dummy message
-      const dummyMessageId = 'dummy-message-id';
-      await redis.zadd(`topic:${guildId}:general`, Date.now(), dummyMessageId);
-      
-      // Create message metadata so the topic model can discover publishers/subscribers
-      await redis.hset(`msg:${guildId}:${dummyMessageId}`,
-        'metadata', JSON.stringify({
-          sourceAgent: 'agent1',
-          targetAgent: 'agent2',
-          timestamp: new Date().toISOString(),
-          priority: 1,
-          retryCount: 0,
-          maxRetries: 3,
-        })
-      );
-      
-      // Add publishers and subscribers sets (not used by TopicModel, but kept for consistency)
-      await redis.sadd(`topic:${guildId}:general:publishers`, 'agent1');
-      await redis.sadd(`topic:${guildId}:general:subscribers`, 'agent2', 'agent3');
-      
-      
+      const guildId = 'test_guild';
+      const timestamp = Date.now();
+
+      // Create topics as sorted sets with messages (RusticAI style)
+      const message = {
+        id: 113,
+        priority: 4,
+        timestamp: timestamp,
+        sender: { name: 'agent1' },
+        topics: `${guildId}:general`,
+        recipient_list: [{ name: 'agent2' }, { name: 'agent3' }],
+        payload: { type: 'test' },
+        format: 'test_message',
+        thread: [113],
+        message_history: [],
+        is_error_message: false
+      };
+
+      await redis.zadd(`${guildId}:general`, timestamp, JSON.stringify(message));
+
       const response = await app.inject({
         method: 'GET',
         url: `/guilds/${guildId}/topics`,
       });
-      
+
       expect(response.statusCode).toBe(200);
       const body = JSON.parse(response.body);
       expect(body.success).toBe(true);
       expect(body.data).toHaveLength(1);
       expect(body.data[0].name).toBe('general');
-      expect(body.data[0].publishers).toContain('agent1');
-      expect(body.data[0].subscribers).toContain('agent2');
     });
   });
   
   describe('Message Operations', () => {
-    const guildId = 'test-guild';
-    const topicName = 'general';
-    
+    const guildId = 'test_guild';
+    const topicName = `${guildId}:general`; // Full topic name in RusticAI format
+
     beforeEach(async () => {
-      // Seed guild and topic
-      const redis = app.redis.command;
-      
-      await redis.hset(`guild:${guildId}`,
-        'name', 'Test Guild',
-        'status', 'active',
-        'namespace', 'test',
-        'createdAt', new Date().toISOString(),
-        'updatedAt', new Date().toISOString()
-      );
-      
-      // Create topic as a sorted set (topics are represented as sorted sets, not hashes)
-      await redis.zadd(`topic:${guildId}:${topicName}`, Date.now(), 'init-message');
+      // No need to seed anything - topics are created when messages are added
     });
     
     it('should retrieve messages for a topic', async () => {
       const redis = app.redis.command;
-      const messageId = `${Date.now().toString(36)}-test`;
-      
-      // Seed message data using multiple field-value pairs
-      await redis.hset(`msg:${guildId}:${messageId}`,
-        'guildId', guildId,
-        'topicName', topicName,
-        'payload', JSON.stringify({
+      const timestamp = Date.now();
+      const messageId = 123456; // RusticAI uses numeric IDs
+
+      // Create a RusticAI-format message
+      const message = {
+        id: messageId,
+        priority: 4,
+        timestamp: timestamp,
+        sender: { name: 'agent1' },
+        topics: topicName,
+        topic_published_to: topicName,
+        recipient_list: [{ name: 'agent2' }],
+        payload: {
           type: 'test',
-          content: { message: 'Hello World' },
-        }),
-        'metadata', JSON.stringify({
-          sourceAgent: 'agent1',
-          timestamp: new Date().toISOString(),
-          priority: 1,
-          retryCount: 0,
-          maxRetries: 3,
-        }),
-        'status', JSON.stringify({
-          current: 'success',
-          history: [],
-        }),
-        'routing', JSON.stringify({
-          source: 'agent1',
-          destination: 'agent2',
-          hops: [],
-        })
-      );
-      
-      // Add to topic messages set
+          content: { message: 'Hello World' }
+        },
+        format: 'test_message',
+        thread: [messageId],
+        message_history: [],
+        is_error_message: false,
+        process_status: 'completed'
+      };
+
+      // Store message in Redis (RusticAI style)
+      await redis.set(`msg:${guildId}:${messageId}`, JSON.stringify(message));
+
+      // Add to topic sorted set (RusticAI stores full JSON in sorted set)
       await redis.zadd(
-        `topic:${guildId}:${topicName}`,
-        Date.now(),
-        messageId
+        topicName, // RusticAI uses topic name as key
+        timestamp,
+        JSON.stringify(message)
       );
       
       const response = await app.inject({
         method: 'GET',
-        url: `/guilds/${guildId}/topics/${topicName}/messages`,
+        url: `/guilds/${guildId}/topics/general/messages`, // API expects just the topic name, not full key
       });
       
       expect(response.statusCode).toBe(200);
@@ -216,62 +206,65 @@ describe('Backend API Integration Tests', () => {
     
     it('should filter messages by status', async () => {
       const redis = app.redis.command;
-      
+      const timestamp = Date.now();
+
       // Seed messages with different statuses
-      const successId = `${Date.now().toString(36)}-success`;
-      const errorId = `${Date.now().toString(36)}-error`;
-      
-      await redis.hset(`msg:${guildId}:${successId}`,
-        'guildId', guildId,
-        'topicName', topicName,
-        'payload', JSON.stringify({ type: 'test', content: {} }),
-        'metadata', JSON.stringify({
-          sourceAgent: 'agent1',
-          timestamp: new Date().toISOString(),
-          priority: 1,
-          retryCount: 0,
-          maxRetries: 3,
-        }),
-        'status', JSON.stringify({ current: 'success', history: [] }),
-        'routing', JSON.stringify({ source: 'agent1', hops: [] })
+      const completedId = 123457;
+      const errorId = 123458;
+
+      // Create completed message
+      const completedMessage = {
+        id: completedId,
+        priority: 4,
+        timestamp: timestamp - 1000,
+        sender: { name: 'agent1' },
+        topics: topicName,
+        recipient_list: [],
+        payload: { type: 'test', content: {} },
+        format: 'test_message',
+        thread: [completedId],
+        message_history: [],
+        is_error_message: false,
+        process_status: 'completed'
+      };
+
+      // Create error message
+      const errorMessage = {
+        id: errorId,
+        priority: 4,
+        timestamp: timestamp,
+        sender: { name: 'agent2' },
+        topics: topicName,
+        recipient_list: [],
+        payload: { type: 'test', content: {} },
+        format: 'test_message',
+        thread: [errorId],
+        message_history: [],
+        is_error_message: true,
+        process_status: 'error'
+      };
+
+      // Store messages
+      await redis.set(`msg:${guildId}:${completedId}`, JSON.stringify(completedMessage));
+      await redis.set(`msg:${guildId}:${errorId}`, JSON.stringify(errorMessage));
+
+      // Add to topic sorted set
+      await redis.zadd(topicName,
+        completedMessage.timestamp, JSON.stringify(completedMessage),
+        errorMessage.timestamp, JSON.stringify(errorMessage)
       );
-      
-      await redis.hset(`msg:${guildId}:${errorId}`,
-        'guildId', guildId,
-        'topicName', topicName,
-        'payload', JSON.stringify({ type: 'test', content: {} }),
-        'metadata', JSON.stringify({
-          sourceAgent: 'agent2',
-          timestamp: new Date().toISOString(),
-          priority: 1,
-          retryCount: 3,
-          maxRetries: 3,
-        }),
-        'status', JSON.stringify({ current: 'error', history: [] }),
-        'routing', JSON.stringify({ source: 'agent2', hops: [] }),
-        'error', JSON.stringify({
-          code: 'TEST_ERROR',
-          message: 'Test error',
-          timestamp: new Date().toISOString(),
-        })
-      );
-      
-      await redis.zadd(`topic:${guildId}:${topicName}`, 
-        Date.now() - 1000, successId,
-        Date.now(), errorId
-      );
-      
+
       // Test filtering by error status
       const response = await app.inject({
         method: 'GET',
-        url: `/guilds/${guildId}/topics/${topicName}/messages?status=error`,
+        url: `/guilds/${guildId}/topics/general/messages?status=error`, // API expects just the topic name
       });
-      
+
       expect(response.statusCode).toBe(200);
       const body = JSON.parse(response.body);
       expect(body.data).toHaveLength(1);
-      expect(body.data[0].status.current).toBe('error');
-      expect(body.data[0].error).toBeDefined();
+      expect(body.data[0].process_status).toBe('error');
+      expect(body.data[0].is_error_message).toBe(true);
     });
   });
   

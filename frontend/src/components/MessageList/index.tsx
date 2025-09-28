@@ -120,14 +120,19 @@ export function MessageList() {
           />
         ) : (
           <div className="divide-y">
-            {filteredMessages.map((message) => (
-              <MessageListItem
-                key={message.id.id}
-                message={message}
-                isSelected={selectedMessageId === message.id.id}
-                onSelect={() => selectMessage(message.id.id)}
-              />
-            ))}
+            {filteredMessages.map((message) => {
+              const msgId = typeof message.id === 'number' ? message.id.toString() :
+                            typeof message.id === 'string' ? message.id :
+                            message.id?.id || 'unknown';
+              return (
+                <MessageListItem
+                  key={msgId}
+                  message={message}
+                  isSelected={selectedMessageId === msgId}
+                  onSelect={() => selectMessage(msgId)}
+                />
+              );
+            })}
           </div>
         )}
       </div>

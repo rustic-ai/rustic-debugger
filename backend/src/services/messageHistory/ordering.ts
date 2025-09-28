@@ -8,19 +8,19 @@ export class MessageOrdering {
   orderMessages(messages: Message[]): Message[] {
     return messages.sort((a, b) => {
       // First sort by timestamp
-      const timeDiff = a.metadata.timestamp.getTime() - b.metadata.timestamp.getTime();
+      const timeDiff = a.timestamp - b.timestamp;
       if (timeDiff !== 0) {
         return timeDiff;
       }
-      
+
       // Same timestamp - sort by priority (higher priority first)
-      const priorityDiff = b.metadata.priority - a.metadata.priority;
+      const priorityDiff = b.priority - a.priority;
       if (priorityDiff !== 0) {
         return priorityDiff;
       }
-      
-      // Same timestamp and priority - use GemstoneID counter for stable ordering
-      return a.id.counter - b.id.counter;
+
+      // Same timestamp and priority - use message ID for stable ordering
+      return a.id - b.id;
     });
   }
   
@@ -34,19 +34,19 @@ export class MessageOrdering {
     const rootMessages: Message[] = [];
     
     for (const message of messages) {
-      if (message.parentMessageId) {
-        const siblings = childrenMap.get(message.parentMessageId) || [];
+      // Use in_response_to field to determine parent
+      if (message.in_response_to) {
+        const parentId = message.in_response_to.toString();
+        const siblings = childrenMap.get(parentId) || [];
         siblings.push(message);
-        childrenMap.set(message.parentMessageId, siblings);
+        childrenMap.set(parentId, siblings);
       } else {
         rootMessages.push(message);
       }
     }
     
     // Sort root messages by timestamp
-    rootMessages.sort((a, b) => 
-      a.metadata.timestamp.getTime() - b.metadata.timestamp.getTime()
-    );
+    rootMessages.sort((a, b) => a.timestamp - b.timestamp);
     
     // Build ordered list with depth-first traversal
     const ordered: Message[] = [];
@@ -57,9 +57,9 @@ export class MessageOrdering {
       ordered.push(message);
       
       // Add children recursively
-      const children = childrenMap.get(message.id.id) || [];
+      const children = childrenMap.get(message.id.toString()) || [];
       children
-        .sort((a, b) => a.metadata.timestamp.getTime() - b.metadata.timestamp.getTime())
+        .sort((a, b) => a.timestamp - b.timestamp)
         .forEach(child => addMessageAndChildren(child, depth + 1));
     };
     
@@ -79,7 +79,7 @@ export class MessageOrdering {
     const buckets = new Map<number, Message[]>();
     
     for (const message of messages) {
-      const timestamp = message.metadata.timestamp.getTime();
+      const timestamp = message.timestamp;
       const bucket = Math.floor(timestamp / bucketSizeMs) * bucketSizeMs;
       
       const bucketMessages = buckets.get(bucket) || [];

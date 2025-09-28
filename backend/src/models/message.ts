@@ -64,9 +64,12 @@ export class MessageModel {
       const min = timeRange?.start?.getTime() || '-inf';
       const max = timeRange?.end?.getTime() || '+inf';
 
+      // Build the full topic key (guildId:topicName in RusticAI)
+      const topicKey = guildId ? `${guildId}:${topicName}` : topicName;
+
       // The sorted set contains full JSON messages
       const rawMessages = await redis.zrangebyscore(
-        topicName,
+        topicKey,
         min,
         max
       );

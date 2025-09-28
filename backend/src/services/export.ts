@@ -71,25 +71,34 @@ export class ExportService {
   ): Promise<Buffer> {
     const exportData = messages.map(message => {
       const base: any = {
-        id: message.id.id,
-        guildId: message.guildId,
-        topicName: message.topicName,
-        timestamp: message.metadata.timestamp.toISOString(),
-        status: message.status.current,
+        id: message.id,
+        timestamp: new Date(message.timestamp).toISOString(),
+        format: message.format,
+        topics: message.topics,
+        sender: message.sender,
         payload: message.payload,
+        is_error_message: message.is_error_message,
+        process_status: message.process_status,
       };
-      
+
       if (options.includeMetadata) {
-        base.metadata = message.metadata;
+        base.priority = message.priority;
+        base.recipient_list = message.recipient_list;
+        base.thread = message.thread;
+        base.in_response_to = message.in_response_to;
+        base.conversation_id = message.conversation_id;
+        base.ttl = message.ttl;
       }
-      
+
       if (options.includeRouting) {
-        base.routing = message.routing;
+        base.routing_slip = message.routing_slip;
+        base.forward_header = message.forward_header;
+        base.message_history = message.message_history;
       }
-      
+
       return base;
     });
-    
+
     return Buffer.from(JSON.stringify(exportData, null, 2));
   }
   
@@ -120,31 +129,31 @@ export class ExportService {
     const rows = [headers.join(',')];
     
     for (const message of messages) {
-      const payloadStr = JSON.stringify(message.payload.content);
+      const payloadStr = JSON.stringify(message.payload);
       const row = [
-        message.id.id,
-        message.guildId,
-        message.topicName,
-        message.metadata.timestamp.toISOString(),
-        message.status.current,
-        message.metadata.sourceAgent,
-        message.metadata.targetAgent || '',
-        message.payload.type,
+        message.id.toString(),
+        typeof message.topics === 'string' ? message.topics : message.topics.join(';'),
+        message.topic_published_to || '',
+        new Date(message.timestamp).toISOString(),
+        message.process_status || (message.is_error_message ? 'error' : 'completed'),
+        message.sender.name || message.sender.id || 'unknown',
+        message.recipient_list?.map(r => r.name || r.id).join(';') || '',
+        message.format,
         payloadStr.length.toString(),
       ];
-      
+
       if (options.includeMetadata) {
         row.push(
-          message.metadata.priority.toString(),
-          message.metadata.retryCount.toString(),
-          message.metadata.ttl?.toString() || ''
+          message.priority.toString(),
+          message.thread?.length.toString() || '0',
+          message.ttl?.toString() || ''
         );
       }
-      
+
       if (options.includeRouting) {
         row.push(
-          message.routing.hops.length.toString(),
-          message.routing.destination || ''
+          message.message_history?.length.toString() || '0',
+          message.forward_header?.on_behalf_of?.name || ''
         );
       }
       
