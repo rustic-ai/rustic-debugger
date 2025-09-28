@@ -8,25 +8,26 @@ tags: [screenshots, visual-guide, ui]
 
 Explore the Rustic Debug interface through these annotated screenshots and visual guides.
 
-## Guild Selection Page
+## Dashboard Page
 
-The Guild Selection page is your entry point to debugging. It displays all available RusticAI guilds in your Redis instance.
+The Dashboard page is your entry point to debugging. It displays all available RusticAI guilds in your Redis instance with real-time metrics.
 
-![Guild Selection Page](../assets/screenshots/guilds-page.png)
+![Dashboard Page - Guilds Overview]
 
 **Key Features:**
 - **Guild Cards**: Each guild is displayed as a card showing:
-  - Guild name and ID
-  - Number of active topics
-  - Message count
-  - Last activity timestamp
-  - Health status indicator
-- **Search Bar**: Filter guilds by name or ID
-- **Status Indicators**:
-  - 🟢 Active guilds with recent messages
-  - 🟡 Idle guilds with no recent activity
-  - 🔴 Guilds with errors or issues
-- **Quick Actions**: Direct links to debug specific guilds
+  - Guild name and ID (e.g., "Test Guild" with ID "test_guild_id")
+  - Number of active topics (e.g., "5 Topics")
+  - Active agent count (e.g., "0 Agents" when idle)
+  - Real-time message rate (e.g., "0.0/s")
+  - Active status indicator (green dot)
+- **Summary Statistics Bar**: At the top showing:
+  - Active Guilds: 6/6
+  - Total Topics: 51
+  - Active Agents: 0
+  - Message Rate: 0.0/s
+- **Connection Status**: Top-right indicator showing "Connected (1ms)"
+- **Quick Navigation**: Click any guild card to debug its messages
 
 ## Debug Dashboard
 
@@ -42,28 +43,31 @@ The main debugging interface provides comprehensive tools for message analysis.
 
 ## Message List View
 
-The List View presents messages in a chronological, filterable table format.
+The List View presents messages in a chronological format with topic filtering on the left sidebar.
 
-![List View](../assets/screenshots/list-view.png)
+![List View - Chronological Message Display]
 
 **List View Features:**
 
-### Message Table
-- **Columns**:
-  - Timestamp (with millisecond precision)
-  - Message ID (GemstoneID format)
-  - Topic
-  - Agent Tag
-  - Status (success/error/pending)
-  - Content preview
-  - Actions (inspect, replay, export)
+### Topic Sidebar (Left)
+- **Topic List** with message counts:
+  - 📥 initiator (16 messages)
+  - 📥 responder (14 messages)
+  - heartbeat (54 messages)
+  - default topic (107 messages)
+  - 📥 local test (7 messages)
+- Selected topic is highlighted with dark background
 
-### Filtering Panel
-- **Time Range**: Last hour, day, week, or custom range
-- **Status Filter**: All, Success, Error, Pending
-- **Topic Filter**: Multi-select dropdown
-- **Agent Filter**: Filter by specific agents
-- **Search**: Full-text search in message content
+### Message Cards (Center)
+- **Agent Information**:
+  - Circular avatar with initial (e.g., "I" for Initiator Agent)
+  - Agent name and exact timestamp
+- **Message Details**:
+  - Status badge (green "completed" badge)
+  - Message type (e.g., "SelfReadyNotification")
+  - JSON payload with syntax highlighting
+  - Message ID and priority at the bottom
+- **Search Bar**: "Search messages, agents, IDs..." for quick filtering
 
 ### Message Inspector
 When you click on a message, the inspector panel opens:
@@ -87,82 +91,67 @@ When you click on a message, the inspector panel opens:
 
 ## Thread View
 
-The Thread View visualizes conversation flows and message chains.
+The Thread View groups related messages by conversation thread for easier tracking.
 
-![Thread View](../assets/screenshots/thread-view.png)
+![Thread View - Grouped by Conversation]
 
 **Thread Visualization:**
 
-### Thread Timeline
-- **Vertical Timeline**: Messages arranged chronologically
-- **Thread Connections**: Lines connecting related messages
-- **Branch Points**: Where conversations diverge
-- **Color Coding**:
-  - Blue: User messages
-  - Green: System responses
-  - Yellow: Processing messages
-  - Red: Error messages
+### Thread Headers
+- **Thread Identifier**: Shows truncated thread ID (e.g., "Thread: 958614409581... (1 messages)")
+- **Message Count**: Number of messages in each thread
+- **Thread Count Indicator**: "16 messages" and "16 threads" shown at the top
 
-### Thread Inspector
-- **Thread Metadata**:
-  - Thread ID
-  - Start time
-  - Duration
-  - Message count
-  - Participating agents
-- **Thread Actions**:
-  - Export thread
-  - Replay thread
-  - Share thread link
+### Thread Content
+- **Compact Message Display**: Each thread shows:
+  - Agent avatar and name
+  - Timestamp (time only for same-day messages)
+  - Message type (e.g., "SelfReadyNotification")
+  - JSON payload preview
+- **Chronological Ordering**: Threads are arranged by timestamp
+- **Visual Separation**: Each thread is clearly separated for easy scanning
 
-### Thread Statistics
-- **Performance Metrics**:
-  - Total thread duration
-  - Average response time
-  - Number of retries
-  - Error rate
+### Benefits of Thread View
+- **Context Preservation**: Related messages stay together
+- **Conversation Tracking**: Easy to follow request-response patterns
+- **Debugging Workflows**: Identify where conversations break or fail
+- **Performance Analysis**: See thread durations at a glance
 
 ## Graph View
 
-The Graph View provides an interactive visualization of message flows between topics and agents.
+The Graph View provides an interactive visualization of message flows using a node-based graph.
 
-![Graph View](../assets/screenshots/graph-view.png)
+![Graph View - Interactive Message Flow Visualization]
 
 **Graph Visualization Components:**
 
-### Node Types
-- **Guild Node** (Large circle): Central node representing the guild
-- **Topic Nodes** (Medium circles): Topics within the guild
-- **Agent Nodes** (Small circles): Individual agents
-- **Message Nodes** (Dots): Individual messages (optional)
+### Layout Controls (Top Bar)
+- **Layout Options**: Toggle between different visualization modes
+  - Tree layout (hierarchical structure)
+  - Timeline layout (temporal arrangement)
+  - Circle layout (radial distribution)
+- **View Mode Icons**: Quick access to different visualization styles
 
-### Edge Types
-- **Solid Lines**: Direct message flow
-- **Dashed Lines**: Async/delayed messages
-- **Thick Lines**: High-traffic routes
-- **Red Lines**: Error paths
+### Interactive Canvas
+- **Node Visualization**: Messages and agents represented as connected nodes
+- **Visual Flow Lines**: Shows message routing and relationships
+- **Canvas Controls** (Bottom-right):
+  - Plus/Minus buttons for zoom in/out
+  - Fit-to-screen button
+  - Fullscreen toggle
+  - Pan controls for navigation
 
-### Interactive Features
-- **Zoom & Pan**: Navigate the graph
-- **Node Selection**: Click to see details
-- **Filter Controls**: Show/hide node types
-- **Layout Options**:
-  - Hierarchical
-  - Force-directed
-  - Circular
-  - Tree
+### Graph Features
+- **Real-time Updates**: Graph updates as new messages arrive
+- **Interactive Exploration**: Click and drag to explore the graph
+- **Focus on Context**: Selected topic ("initiator") highlighted in sidebar
+- **Visual Hierarchy**: Node size and color indicate importance and type
 
-### Graph Statistics Panel
-![Graph Statistics](../assets/screenshots/graph-stats.png)
-
-- **Flow Metrics**:
-  - Messages per second
-  - Average latency
-  - Bottleneck detection
-- **Node Statistics**:
-  - Most active topics
-  - Busiest agents
-  - Error hotspots
+### Use Cases for Graph View
+- **System Architecture Visualization**: Understand how agents communicate
+- **Bottleneck Detection**: Identify high-traffic routes
+- **Debug Message Routing**: Trace message paths visually
+- **Performance Analysis**: See which paths have delays or errors
 
 ## Real-time Monitoring
 

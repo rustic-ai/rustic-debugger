@@ -13,6 +13,46 @@ A comprehensive web-based debugging tool for RusticAI's Redis messaging system. 
 - **Thread View**: Track message threads and conversations
 - **Developer Presence**: See which developers are currently monitoring
 
+## Screenshots
+
+<div align="center">
+
+### Dashboard - Guild Overview
+![Dashboard View](docs/src/assets/screenshots/dashboard-guilds.png)
+*Monitor all active guilds with real-time metrics and message rates*
+
+### Debug Views
+
+<table>
+<tr>
+<td width="50%">
+
+#### List View
+![List View](docs/src/assets/screenshots/debug-list-view.png)
+*Chronological message list with filtering*
+
+</td>
+<td width="50%">
+
+#### Thread View
+![Thread View](docs/src/assets/screenshots/debug-thread-view.png)
+*Messages grouped by conversation threads*
+
+</td>
+</tr>
+<tr>
+<td colspan="2">
+
+#### Graph View
+![Graph View](docs/src/assets/screenshots/debug-graph-view.png)
+*Interactive visualization of message flows between agents*
+
+</td>
+</tr>
+</table>
+
+</div>
+
 ## Architecture
 
 This is a monorepo project using PNPM workspaces:

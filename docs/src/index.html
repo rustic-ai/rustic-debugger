@@ -219,6 +219,51 @@
             color: #764ba2;
         }
 
+        /* Screenshots Section */
+        .screenshots {
+            background: white;
+            border-radius: 16px;
+            padding: 3rem;
+            margin: 3rem 0;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+        }
+        .screenshots h2 {
+            color: #333;
+            font-size: 2rem;
+            margin-bottom: 2rem;
+            text-align: center;
+        }
+        .screenshot-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 2rem;
+            margin-top: 2rem;
+        }
+        .screenshot-card {
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            transition: transform 0.3s, box-shadow 0.3s;
+            cursor: pointer;
+        }
+        .screenshot-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+        }
+        .screenshot-card img {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+            object-position: top;
+        }
+        .screenshot-card .caption {
+            padding: 1rem;
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #555;
+            text-align: center;
+        }
+
         /* Footer */
         footer {
             text-align: center;
@@ -291,6 +336,29 @@
                     <h3>Read-Only Mode</h3>
                     <p>Safe for production with zero write operations by default</p>
                 </div>
+            </div>
+        </div>
+
+        <!-- Screenshots Section -->
+        <div class="screenshots">
+            <h2>📸 See It In Action</h2>
+            <div class="screenshot-grid">
+                <a href="./user-guide/screenshots.html" class="screenshot-card">
+                    <img src="./assets/screenshots/dashboard-guilds.png" alt="Dashboard View">
+                    <div class="caption">Dashboard - Guild Overview</div>
+                </a>
+                <a href="./user-guide/screenshots.html#message-list-view" class="screenshot-card">
+                    <img src="./assets/screenshots/debug-list-view.png" alt="List View">
+                    <div class="caption">List View - Messages</div>
+                </a>
+                <a href="./user-guide/screenshots.html#thread-view" class="screenshot-card">
+                    <img src="./assets/screenshots/debug-thread-view.png" alt="Thread View">
+                    <div class="caption">Thread View - Conversations</div>
+                </a>
+                <a href="./user-guide/screenshots.html#graph-view" class="screenshot-card">
+                    <img src="./assets/screenshots/debug-graph-view.png" alt="Graph View">
+                    <div class="caption">Graph View - Flow Visualization</div>
+                </a>
             </div>
         </div>
 
