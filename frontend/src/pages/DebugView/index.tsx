@@ -17,18 +17,8 @@ import type { Message, Topic } from '@rustic-debug/types';
 import { MessageFlowGraph } from '@components/MessageFlowGraph';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import { getAgentColorClass } from '@/utils/messageColors';
 
-// Color palette for agents
-const AGENT_COLORS = [
-  'bg-blue-500',
-  'bg-green-500',
-  'bg-purple-500',
-  'bg-orange-500',
-  'bg-pink-500',
-  'bg-teal-500',
-  'bg-indigo-500',
-  'bg-yellow-500',
-];
 
 export function DebugView() {
   const { guildId, topicName } = useParams<{
@@ -187,13 +177,6 @@ export function DebugView() {
   }, [filteredMessages]);
 
   // Helper functions
-  const getAgentColor = (agent: string): string => {
-    let hash = 0;
-    for (let i = 0; i < agent.length; i++) {
-      hash = agent.charCodeAt(i) + ((hash << 5) - hash);
-    }
-    return AGENT_COLORS[Math.abs(hash) % AGENT_COLORS.length];
-  };
 
   const getAgentInitials = (agent: string): string => {
     return agent.split(/[_#]/).map(part => part[0]).join('').toUpperCase().slice(0, 2);
@@ -300,7 +283,7 @@ export function DebugView() {
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className={`w-10 h-10 rounded-full ${getAgentColor(senderName)} flex items-center justify-center text-white font-bold`}>
+                  <div className={`w-10 h-10 rounded-full ${getAgentColorClass(senderName)} flex items-center justify-center text-white font-bold`}>
                     {getAgentInitials(senderName)}
                   </div>
                   <div>
@@ -395,7 +378,7 @@ export function DebugView() {
                   >
                     <CardHeader className="pb-2">
                       <div className="flex items-center gap-2">
-                        <div className={`w-8 h-8 rounded-full ${getAgentColor(senderName)} flex items-center justify-center text-white text-xs font-bold`}>
+                        <div className={`w-8 h-8 rounded-full ${getAgentColorClass(senderName)} flex items-center justify-center text-white text-xs font-bold`}>
                           {getAgentInitials(senderName)}
                         </div>
                         <div className="flex flex-col">
@@ -575,7 +558,7 @@ export function DebugView() {
                     onClick={() => toggleAgent(agent)}
                     className="gap-2"
                   >
-                    <div className={`w-4 h-4 rounded-full ${getAgentColor(agent)}`} />
+                    <div className={`w-4 h-4 rounded-full ${getAgentColorClass(agent)}`} />
                     {agent}
                   </Button>
                 ))}
@@ -677,11 +660,11 @@ export function DebugView() {
                   <div className="h-[calc(100vh-20rem)]">
                     <MessageFlowGraph
                       messages={allMessagesData || []}
-                      selectedMessageId={selectedMessage?.id.id || selectedMessage?.id}
+                      selectedMessageId={selectedMessage?.id?.toString()}
                       selectedTopic={selectedTopic}
                       onMessageSelect={(id) => {
                         const allMsgs = allMessagesData || [];
-                        const msg = allMsgs.find(m => (m.id.id || m.id) === id);
+                        const msg = allMsgs.find(m => m.id.toString() === id);
                         if (msg) {
                           setSelectedMessage(msg);
                           // Also select the topic of the clicked message
@@ -730,7 +713,7 @@ export function DebugView() {
                 </CardHeader>
                 <CardContent className="space-y-2">
                   <div className="flex items-center gap-2">
-                    <div className={`w-6 h-6 rounded-full ${getAgentColor(selectedMessage.sender?.name || selectedMessage.sender?.id || 'unknown')} flex items-center justify-center text-white text-xs font-bold`}>
+                    <div className={`w-6 h-6 rounded-full ${getAgentColorClass(selectedMessage.sender?.name || selectedMessage.sender?.id || 'unknown')} flex items-center justify-center text-white text-xs font-bold`}>
                       {getAgentInitials(selectedMessage.sender?.name || selectedMessage.sender?.id || 'unknown')}
                     </div>
                     <span className="text-sm">Sender: {selectedMessage.sender?.name || selectedMessage.sender?.id || 'unknown'}</span>
@@ -738,7 +721,7 @@ export function DebugView() {
                   {selectedMessage.recipient_list && selectedMessage.recipient_list.length > 0 && (
                     selectedMessage.recipient_list.map((recipient, idx) => (
                       <div key={idx} className="flex items-center gap-2">
-                        <div className={`w-6 h-6 rounded-full ${getAgentColor(recipient.name || recipient.id || 'unknown')} flex items-center justify-center text-white text-xs font-bold`}>
+                        <div className={`w-6 h-6 rounded-full ${getAgentColorClass(recipient.name || recipient.id || 'unknown')} flex items-center justify-center text-white text-xs font-bold`}>
                           {getAgentInitials(recipient.name || recipient.id || 'unknown')}
                         </div>
                         <span className="text-sm">Recipient: {recipient.name || recipient.id || 'unknown'}</span>

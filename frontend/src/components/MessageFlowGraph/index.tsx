@@ -15,6 +15,7 @@ import type { Message } from '@rustic-debug/types';
 import { MessageNode } from './MessageNode';
 import { getLayoutedElements, getForceLayoutElements, getCircularLayoutElements } from '@/utils/graphLayout';
 import { Button } from '@/components/ui/button';
+import { getAgentColorHex } from '@/utils/messageColors';
 
 interface MessageFlowGraphProps {
   messages: Message[];
@@ -53,7 +54,7 @@ export function MessageFlowGraph({
 
     // Build message map
     messageList.forEach(msg => {
-      const msgId = msg.id?.id || msg.id || msg.message_id || `msg-${Math.random()}`;
+      const msgId = typeof msg.id === 'number' ? msg.id.toString() : msg.id?.id || `msg-${Math.random()}`;
       messageMap.set(msgId, msg);
     });
 
@@ -63,12 +64,12 @@ export function MessageFlowGraph({
       visited.add(msgId);
 
       const msg = messageMap.get(msgId);
-      if (!msg || !msg.in_response_to?.id) {
+      if (!msg || msg.in_response_to === undefined || msg.in_response_to === null) {
         levelMap.set(msgId, 0);
         return 0;
       }
 
-      const parentId = msg.in_response_to.id;
+      const parentId = msg.in_response_to.toString();
       const parentLevel = calculateLevel(parentId, visited);
       const level = parentLevel + 1;
       levelMap.set(msgId, level);
@@ -77,7 +78,7 @@ export function MessageFlowGraph({
 
     // Calculate levels for all messages
     messageList.forEach(msg => {
-      const msgId = msg.id?.id || msg.id || msg.message_id || `msg-${Math.random()}`;
+      const msgId = typeof msg.id === 'number' ? msg.id.toString() : msg.id?.id || `msg-${Math.random()}`;
       if (!levelMap.has(msgId)) {
         calculateLevel(msgId);
       }
@@ -85,26 +86,18 @@ export function MessageFlowGraph({
 
     // Create nodes without positions (will be positioned by layout algorithm)
     messageList.forEach((msg, index) => {
-      const msgId = msg.id?.id || msg.id || msg.message_id || `msg-${index}`;
+      const msgId = typeof msg.id === 'number' ? msg.id.toString() : msg.id?.id || `msg-${index}`;
 
-      // Determine agent color
-      const agentName = msg.metadata?.sourceAgent || msg.metadata?.agent_name || msg.agent_name || 'unknown';
-      const agentColors: Record<string, string> = {
-        'upa-test_user': '#3b82f6',
-        'test_user': '#3b82f6',
-        'scheduler_agent': '#8b5cf6',
-        'manager_agent': '#ec4899',
-        'monitor': '#f59e0b',
-        'unknown': '#6b7280',
-      };
-
-      const color = Object.entries(agentColors).find(([key]) =>
-        agentName.toLowerCase().includes(key)
-      )?.[1] || agentColors.unknown;
+      // Determine agent color from sender using centralized color system
+      const agentName = msg.sender?.name || msg.sender?.id || 'unknown';
+      const color = getAgentColorHex(agentName);
 
       // Check if message belongs to selected topic
-      const isFromSelectedTopic = selectedTopic && (msg.topic === selectedTopic ||
-        msg.metadata?.topic === selectedTopic);
+      const isFromSelectedTopic = selectedTopic && (
+        msg.topic === selectedTopic ||
+        (typeof msg.topics === 'string' && msg.topics.includes(selectedTopic)) ||
+        (Array.isArray(msg.topics) && msg.topics.includes(selectedTopic))
+      );
 
       nodes.push({
         id: msgId,
@@ -122,10 +115,10 @@ export function MessageFlowGraph({
       });
     });
 
-    // Create edges based on in_response_to or parentMessageId relationships
+    // Create edges based on in_response_to relationships
     messageList.forEach(msg => {
-      const msgId = msg.id?.id || msg.id || msg.message_id;
-      const parentId = msg.in_response_to?.id || msg.parentMessageId;
+      const msgId = typeof msg.id === 'number' ? msg.id.toString() : msg.id?.id;
+      const parentId = msg.in_response_to !== undefined && msg.in_response_to !== null ? msg.in_response_to.toString() : undefined;
       if (parentId && parentId !== msgId) {
         // Only create edge if parent node exists
         if (messageMap.has(parentId)) {
