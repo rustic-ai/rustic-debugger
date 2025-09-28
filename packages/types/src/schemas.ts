@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { ProcessStatus } from './message.js';
 
 // GemstoneID schema
 export const gemstoneIdSchema = z.object({
@@ -114,7 +115,7 @@ export const messageSchema = z.object({
 });
 
 // Agent schemas
-export const processStatusSchema = z.enum([
+export const agentStatusSchema = z.enum([
   'initializing',
   'ready',
   'busy',
@@ -127,7 +128,7 @@ export const agentSchema = z.object({
   guildId: z.string(),
   name: z.string(),
   type: z.enum(['producer', 'consumer', 'processor', 'router']),
-  status: processStatusSchema,
+  status: agentStatusSchema,
   subscriptions: z.array(z.string()),
   publications: z.array(z.string()),
   metadata: z.object({
@@ -168,11 +169,14 @@ export const timeRangeSchema = z.object({
   end: z.string().datetime().optional(),
 });
 
+// ProcessStatus values for filtering
+const processStatusSchema = z.enum(['running', 'error', 'completed']);
+
 export const messageFilterSchema = z.object({
   guildId: z.string().optional(),
   topicName: z.string().optional(),
   threadId: z.string().optional(),
-  status: z.array(messageStatusSchema).optional(),
+  status: z.array(processStatusSchema).optional(),
   agentId: z.string().optional(),
   timeRange: z.object({
     start: z.date(),

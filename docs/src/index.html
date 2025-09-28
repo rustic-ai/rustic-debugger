@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rustic Debug - Redis Message Debugger for RusticAI</title>
+    <meta name="description" content="Real-time debugging tool for Redis message flows in RusticAI applications. Visualize, inspect, and optimize your distributed AI systems.">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            line-height: 1.6;
+            color: #1a1a1a;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        /* Hero Section */
+        .hero {
+            background: white;
+            border-radius: 16px;
+            padding: 4rem 3rem;
+            text-align: center;
+            margin-bottom: 3rem;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+        }
+        .hero h1 {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .hero .tagline {
+            font-size: 1.3rem;
+            color: #555;
+            margin-bottom: 2rem;
+        }
+        .hero .description {
+            max-width: 700px;
+            margin: 0 auto 2rem;
+            color: #666;
+            line-height: 1.8;
+        }
+
+        /* Quick Start */
+        .quick-start {
+            background: #f0f4ff;
+            border: 2px solid #667eea;
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin: 2rem auto;
+            max-width: 600px;
+        }
+        .quick-start h3 {
+            color: #667eea;
+            margin-bottom: 1rem;
+        }
+        .quick-start code {
+            display: block;
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 1rem;
+            border-radius: 6px;
+            margin: 0.5rem 0;
+            font-family: 'Monaco', 'Courier New', monospace;
+        }
+
+        /* Primary Actions */
+        .primary-actions {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            margin: 2rem 0;
+        }
+        .btn {
+            display: inline-block;
+            padding: 0.8rem 2rem;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+        }
+        .btn-secondary {
+            background: white;
+            color: #667eea;
+            border: 2px solid #667eea;
+        }
+
+        /* Feature Grid */
+        .features {
+            margin-bottom: 3rem;
+        }
+        .features h2 {
+            text-align: center;
+            color: white;
+            font-size: 2rem;
+            margin-bottom: 2rem;
+        }
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+        }
+        .feature-card {
+            background: white;
+            border-radius: 12px;
+            padding: 2rem;
+            text-align: center;
+            transition: transform 0.2s;
+        }
+        .feature-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 24px rgba(0,0,0,0.1);
+        }
+        .feature-icon {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+        }
+        .feature-card h3 {
+            color: #333;
+            margin-bottom: 0.5rem;
+        }
+        .feature-card p {
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        /* Documentation Cards */
+        .docs-section {
+            margin-bottom: 3rem;
+        }
+        .docs-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 2rem;
+        }
+        .doc-card {
+            background: white;
+            border-radius: 12px;
+            padding: 2rem;
+            border: 1px solid #e9ecef;
+            transition: all 0.3s;
+        }
+        .doc-card:hover {
+            box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+            transform: translateY(-2px);
+        }
+        .doc-card h3 {
+            color: #667eea;
+            margin-bottom: 1rem;
+            font-size: 1.5rem;
+        }
+        .doc-card p {
+            color: #666;
+            margin-bottom: 1rem;
+        }
+        .doc-card ul {
+            padding-left: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+        .doc-card li {
+            color: #555;
+            margin-bottom: 0.5rem;
+        }
+        .doc-card a {
+            display: inline-block;
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 600;
+            transition: color 0.2s;
+        }
+        .doc-card a:hover {
+            color: #764ba2;
+        }
+
+        /* Resources */
+        .resources {
+            background: white;
+            border-radius: 12px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+        }
+        .resources h2 {
+            color: #333;
+            margin-bottom: 1.5rem;
+            text-align: center;
+        }
+        .resource-links {
+            display: flex;
+            justify-content: center;
+            gap: 2rem;
+            flex-wrap: wrap;
+        }
+        .resource-link {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.2s;
+        }
+        .resource-link:hover {
+            color: #764ba2;
+        }
+
+        /* Screenshots Section */
+        .screenshots {
+            background: white;
+            border-radius: 16px;
+            padding: 3rem;
+            margin: 3rem 0;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+        }
+        .screenshots h2 {
+            color: #333;
+            font-size: 2rem;
+            margin-bottom: 2rem;
+            text-align: center;
+        }
+        .screenshot-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 2rem;
+            margin-top: 2rem;
+        }
+        .screenshot-card {
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            transition: transform 0.3s, box-shadow 0.3s;
+            cursor: pointer;
+        }
+        .screenshot-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+        }
+        .screenshot-card img {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+            object-position: top;
+        }
+        .screenshot-card .caption {
+            padding: 1rem;
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #555;
+            text-align: center;
+        }
+
+        /* Footer */
+        footer {
+            text-align: center;
+            padding: 2rem;
+            color: white;
+        }
+        footer a {
+            color: white;
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Hero Section -->
+        <div class="hero">
+            <h1>🔍 Rustic Debug</h1>
+            <p class="tagline">Real-time Redis Message Debugger for RusticAI</p>
+            <p class="description">
+                Debug and visualize message flows in your RusticAI applications with ease.
+                Monitor Redis pub/sub channels, inspect message payloads, track conversation threads,
+                and identify performance bottlenecks in your distributed AI systems.
+            </p>
+
+            <!-- Quick Start -->
+            <div class="quick-start">
+                <h3>⚡ Quick Start</h3>
+                <code>npm install -g @rustic-ai/rustic-debug</code>
+                <code>rustic-debug start --redis-url redis://localhost:6379</code>
+            </div>
+
+            <!-- Primary Actions -->
+            <div class="primary-actions">
+                <a href="./user-guide/index.html" class="btn btn-primary">Get Started</a>
+                <a href="./dev-guide/index.html" class="btn btn-secondary">Developer Docs</a>
+            </div>
+        </div>
+
+        <!-- Key Features -->
+        <div class="features">
+            <h2>✨ Key Features</h2>
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">📊</div>
+                    <h3>Visual Flow Graphs</h3>
+                    <p>Interactive diagrams showing message flows between guilds, topics, and agents</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🔄</div>
+                    <h3>Real-time Monitoring</h3>
+                    <p>Live updates via WebSocket for instant debugging feedback</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🕵️</div>
+                    <h3>Message Inspector</h3>
+                    <p>Deep dive into payloads, metadata, and routing rules</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🧵</div>
+                    <h3>Thread Tracking</h3>
+                    <p>Follow conversation chains across multiple topics and guilds</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">📈</div>
+                    <h3>Performance Metrics</h3>
+                    <p>Track throughput, latency, and identify bottlenecks</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🔒</div>
+                    <h3>Read-Only Mode</h3>
+                    <p>Safe for production with zero write operations by default</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Screenshots Section -->
+        <div class="screenshots">
+            <h2>📸 See It In Action</h2>
+            <div class="screenshot-grid">
+                <a href="./user-guide/screenshots.html" class="screenshot-card">
+                    <img src="./assets/screenshots/dashboard-guilds.png" alt="Dashboard View">
+                    <div class="caption">Dashboard - Guild Overview</div>
+                </a>
+                <a href="./user-guide/screenshots.html#message-list-view" class="screenshot-card">
+                    <img src="./assets/screenshots/debug-list-view.png" alt="List View">
+                    <div class="caption">List View - Messages</div>
+                </a>
+                <a href="./user-guide/screenshots.html#thread-view" class="screenshot-card">
+                    <img src="./assets/screenshots/debug-thread-view.png" alt="Thread View">
+                    <div class="caption">Thread View - Conversations</div>
+                </a>
+                <a href="./user-guide/screenshots.html#graph-view" class="screenshot-card">
+                    <img src="./assets/screenshots/debug-graph-view.png" alt="Graph View">
+                    <div class="caption">Graph View - Flow Visualization</div>
+                </a>
+            </div>
+        </div>
+
+        <!-- Documentation Cards -->
+        <div class="docs-section">
+            <div class="docs-grid">
+                <div class="doc-card">
+                    <h3>📚 User Guide</h3>
+                    <p>Everything you need to start debugging your RusticAI applications</p>
+                    <ul>
+                        <li>Installation & Setup</li>
+                        <li>Basic Debugging Workflows</li>
+                        <li>Understanding Message Flows</li>
+                        <li>Performance Analysis</li>
+                        <li>Troubleshooting Common Issues</li>
+                    </ul>
+                    <a href="./user-guide/index.html">Read User Guide →</a>
+                </div>
+
+                <div class="doc-card">
+                    <h3>🔧 Developer Guide</h3>
+                    <p>Technical documentation for integration and contribution</p>
+                    <ul>
+                        <li>System Architecture</li>
+                        <li>API Reference</li>
+                        <li>Custom Extensions</li>
+                        <li>GemstoneID Format</li>
+                        <li>Contributing Guidelines</li>
+                    </ul>
+                    <a href="./dev-guide/index.html">Read Developer Guide →</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Resources -->
+        <div class="resources">
+            <h2>📦 Resources</h2>
+            <div class="resource-links">
+                <a href="https://github.com/rustic-ai/rustic-debug" class="resource-link" target="_blank">
+                    <span>💻</span> GitHub Repository
+                </a>
+                <a href="https://github.com/rustic-ai/rustic-debug/issues" class="resource-link" target="_blank">
+                    <span>🐛</span> Report Issues
+                </a>
+                <a href="./dev-guide/api.html" class="resource-link">
+                    <span>📖</span> API Reference
+                </a>
+                <a href="./user-guide/basic-usage.html" class="resource-link">
+                    <span>💡</span> Examples
+                </a>
+                <a href="https://rustic.ai" class="resource-link" target="_blank">
+                    <span>👥</span> Community
+                </a>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <footer>
+            <p>Built with TypeScript and ❤️ for the RusticAI community</p>
+            <p><a href="https://github.com/rustic-ai/rustic-debug">View on GitHub</a> | <a href="https://rustic.ai">RusticAI</a></p>
+        </footer>
+    </div>
+</body>
+</html>

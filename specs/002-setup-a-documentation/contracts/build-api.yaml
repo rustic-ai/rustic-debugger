@@ -1,0 +1,416 @@
+openapi: 3.0.3
+info:
+  title: Documentation Build API
+  version: 1.0.0
+  description: Contract for documentation build process and automation
+
+paths:
+  /build/content:
+    post:
+      summary: Build documentation content from markdown sources
+      description: Process markdown files and generate static HTML content
+      operationId: buildContent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BuildContentRequest'
+      responses:
+        '200':
+          description: Build completed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BuildContentResponse'
+        '400':
+          description: Build validation errors
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BuildError'
+
+  /build/screenshots:
+    post:
+      summary: Generate screenshots for documentation
+      description: Capture screenshots of application pages and views
+      operationId: generateScreenshots
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ScreenshotRequest'
+      responses:
+        '200':
+          description: Screenshots generated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScreenshotResponse'
+        '400':
+          description: Screenshot generation errors
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BuildError'
+
+  /build/navigation:
+    post:
+      summary: Generate navigation structure
+      description: Build hierarchical navigation from page metadata
+      operationId: buildNavigation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NavigationRequest'
+      responses:
+        '200':
+          description: Navigation built successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NavigationResponse'
+
+  /build/optimize:
+    post:
+      summary: Optimize built assets
+      description: Optimize images, CSS, and JavaScript for production
+      operationId: optimizeAssets
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OptimizeRequest'
+      responses:
+        '200':
+          description: Assets optimized successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OptimizeResponse'
+
+components:
+  schemas:
+    BuildContentRequest:
+      type: object
+      required:
+        - sourceDir
+        - outputDir
+      properties:
+        sourceDir:
+          type: string
+          description: Source directory containing markdown files
+          example: "docs/src/content"
+        outputDir:
+          type: string
+          description: Output directory for generated HTML
+          example: "docs/dist"
+        validateLinks:
+          type: boolean
+          default: true
+          description: Whether to validate internal links
+        generateSearchIndex:
+          type: boolean
+          default: true
+          description: Whether to generate search index
+
+    BuildContentResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        pagesBuilt:
+          type: integer
+          description: Number of pages successfully built
+        warnings:
+          type: array
+          items:
+            $ref: '#/components/schemas/BuildWarning'
+        metadata:
+          $ref: '#/components/schemas/SiteMetadata'
+
+    ScreenshotRequest:
+      type: object
+      required:
+        - baseUrl
+        - pages
+      properties:
+        baseUrl:
+          type: string
+          description: Base URL of the application
+          example: "http://localhost:3000"
+        pages:
+          type: array
+          items:
+            $ref: '#/components/schemas/ScreenshotPage'
+        viewports:
+          type: array
+          items:
+            $ref: '#/components/schemas/Viewport'
+          default:
+            - width: 1920
+              height: 1080
+              deviceType: desktop
+        options:
+          $ref: '#/components/schemas/ScreenshotOptions'
+
+    ScreenshotResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        screenshotsCaptured:
+          type: integer
+        screenshots:
+          type: array
+          items:
+            $ref: '#/components/schemas/GeneratedScreenshot'
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ScreenshotError'
+
+    NavigationRequest:
+      type: object
+      required:
+        - pages
+      properties:
+        pages:
+          type: array
+          items:
+            $ref: '#/components/schemas/PageMetadata'
+        maxDepth:
+          type: integer
+          default: 3
+          description: Maximum navigation depth
+
+    NavigationResponse:
+      type: object
+      properties:
+        navigation:
+          $ref: '#/components/schemas/NavigationStructure'
+
+    OptimizeRequest:
+      type: object
+      required:
+        - inputDir
+        - outputDir
+      properties:
+        inputDir:
+          type: string
+          description: Directory containing assets to optimize
+        outputDir:
+          type: string
+          description: Directory for optimized assets
+        optimizations:
+          type: array
+          items:
+            type: string
+            enum: [images, css, javascript, html]
+
+    OptimizeResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        optimizedFiles:
+          type: integer
+        sizeBefore:
+          type: integer
+          description: Total size before optimization (bytes)
+        sizeAfter:
+          type: integer
+          description: Total size after optimization (bytes)
+
+    ScreenshotPage:
+      type: object
+      required:
+        - path
+        - name
+      properties:
+        path:
+          type: string
+          description: URL path to capture
+          example: "/dashboard"
+        name:
+          type: string
+          description: Name for the screenshot file
+          example: "dashboard-overview"
+        selector:
+          type: string
+          description: CSS selector to focus on
+        waitFor:
+          type: string
+          description: Element or condition to wait for
+        hideSelectors:
+          type: array
+          items:
+            type: string
+          description: Elements to hide during capture
+
+    Viewport:
+      type: object
+      required:
+        - width
+        - height
+        - deviceType
+      properties:
+        width:
+          type: integer
+          minimum: 1
+        height:
+          type: integer
+          minimum: 1
+        deviceType:
+          type: string
+          enum: [desktop, tablet, mobile]
+
+    ScreenshotOptions:
+      type: object
+      properties:
+        fullPage:
+          type: boolean
+          default: true
+        delay:
+          type: integer
+          default: 1000
+          description: Delay before capture (ms)
+        quality:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 90
+
+    GeneratedScreenshot:
+      type: object
+      properties:
+        name:
+          type: string
+        path:
+          type: string
+        viewport:
+          $ref: '#/components/schemas/Viewport'
+        size:
+          type: integer
+          description: File size in bytes
+        hash:
+          type: string
+          description: Content hash for change detection
+
+    PageMetadata:
+      type: object
+      required:
+        - id
+        - title
+        - path
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        path:
+          type: string
+        category:
+          type: string
+        section:
+          type: string
+        order:
+          type: integer
+        parent:
+          type: string
+
+    NavigationStructure:
+      type: object
+      properties:
+        categories:
+          type: array
+          items:
+            $ref: '#/components/schemas/NavigationCategory'
+
+    NavigationCategory:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        icon:
+          type: string
+        order:
+          type: integer
+        sections:
+          type: array
+          items:
+            $ref: '#/components/schemas/NavigationSection'
+
+    NavigationSection:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        order:
+          type: integer
+        pages:
+          type: array
+          items:
+            type: string
+
+    SiteMetadata:
+      type: object
+      properties:
+        totalPages:
+          type: integer
+        categories:
+          type: array
+          items:
+            type: string
+        lastBuilt:
+          type: string
+          format: date-time
+        version:
+          type: string
+
+    BuildWarning:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [broken-link, missing-image, invalid-frontmatter]
+        message:
+          type: string
+        file:
+          type: string
+        line:
+          type: integer
+
+    ScreenshotError:
+      type: object
+      properties:
+        page:
+          type: string
+        viewport:
+          $ref: '#/components/schemas/Viewport'
+        error:
+          type: string
+        stack:
+          type: string
+
+    BuildError:
+      type: object
+      properties:
+        message:
+          type: string
+        details:
+          type: array
+          items:
+            type: string
+        file:
+          type: string
+        line:
+          type: integer

@@ -11,10 +11,22 @@ const createQueryClient = () => new QueryClient({
 });
 
 const mockMessage: Message = {
-  id: { id: 'msg-123', timestamp: Date.now() },
-  guildId: 'test-guild',
-  topicName: 'general',
-  threadId: null,
+  // Core identification
+  id: 123456789,
+  priority: 1,
+  timestamp: Date.now(),
+
+  // Sender information
+  sender: { name: 'agent1', id: 'agent1-id' },
+
+  // Topic information
+  topics: 'test-guild:general',
+  topic_published_to: 'test-guild:general',
+
+  // Recipients
+  recipient_list: [{ name: 'agent2', id: 'agent2-id' }],
+
+  // Message content
   payload: {
     type: 'test',
     content: {
@@ -22,22 +34,39 @@ const mockMessage: Message = {
       data: { foo: 'bar' },
     },
   },
-  metadata: {
-    sourceAgent: 'agent1',
-    timestamp: new Date().toISOString(),
-    priority: 1,
-    retryCount: 0,
-    maxRetries: 3,
-  },
-  status: {
-    current: 'success',
-    history: [],
-  },
-  routing: {
-    source: 'agent1',
-    destination: 'agent2',
-    hops: [],
-  },
+  format: 'test.message.TestMessage',
+
+  // Threading
+  in_response_to: undefined,
+  thread: [123456789],
+  conversation_id: null,
+
+  // Computed thread properties
+  current_thread_id: 123456789,
+  root_thread_id: 123456789,
+
+  // Forwarding
+  forward_header: null,
+
+  // Routing
+  routing_slip: null,
+
+  // History
+  message_history: [],
+
+  // TTL and enrichment
+  ttl: null,
+  enrich_with_history: 0,
+
+  // Status
+  is_error_message: false,
+  process_status: 'completed',
+
+  // Tracing
+  traceparent: null,
+
+  // Session
+  session_state: {},
 };
 
 // Simple MessageList component for testing
@@ -56,20 +85,23 @@ function TestMessageList({
   
   return (
     <div>
-      {messages.map((message) => (
-        <div 
-          key={message.id.id}
-          role="button"
-          className={selectedMessage === message.id.id ? 'border-blue-500' : ''}
-          onClick={() => onSelectMessage(message.id.id)}
-        >
-          <MessageListItem
-            message={message}
-            isSelected={selectedMessage === message.id.id}
-            onSelect={() => onSelectMessage(message.id.id)}
-          />
-        </div>
-      ))}
+      {messages.map((message) => {
+        const msgId = typeof message.id === 'number' ? message.id.toString() : message.id?.id || 'msg-unknown';
+        return (
+          <div
+            key={msgId}
+            role="button"
+            className={selectedMessage === msgId ? 'border-blue-500' : ''}
+            onClick={() => onSelectMessage(msgId)}
+          >
+            <MessageListItem
+              message={message}
+              isSelected={selectedMessage === msgId}
+              onSelect={() => onSelectMessage(msgId)}
+            />
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -90,7 +122,7 @@ describe('MessageList', () => {
     // Check for message content
     expect(screen.getByText('agent1')).toBeInTheDocument();
     expect(screen.getByText('test')).toBeInTheDocument(); // payload type
-    expect(screen.getByText(/msg-123/)).toBeInTheDocument(); // message ID
+    expect(screen.getByText(/12345678/)).toBeInTheDocument(); // message ID (truncated)
   });
   
   it('shows empty state when no messages', () => {
@@ -112,9 +144,9 @@ describe('MessageList', () => {
     const queryClient = createQueryClient();
     const { container } = render(
       <QueryClientProvider client={queryClient}>
-        <TestMessageList 
+        <TestMessageList
           messages={[mockMessage]}
-          selectedMessage="msg-123"
+          selectedMessage="123456789"
           onSelectMessage={vi.fn()}
         />
       </QueryClientProvider>
@@ -142,6 +174,6 @@ describe('MessageList', () => {
     // Click the inner button (MessageListItem)
     messageButtons[1].click();
     
-    expect(onSelectMessage).toHaveBeenCalledWith('msg-123');
+    expect(onSelectMessage).toHaveBeenCalledWith('123456789');
   });
 });

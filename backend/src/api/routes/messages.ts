@@ -1,5 +1,5 @@
 import type { FastifyPluginAsync } from 'fastify';
-import type { ApiResponse, PaginatedResponse, Message, MessageStatus } from '@rustic-debug/types';
+import type { ApiResponse, PaginatedResponse, Message, ProcessStatus } from '@rustic-debug/types';
 import { MessageHistoryService } from '../../services/messageHistory/index.js';
 import { GuildDiscoveryService } from '../../services/guildDiscovery.js';
 import { validateMessageId } from '../../utils/gemstoneId.js';
@@ -86,7 +86,7 @@ export const topicMessageRoutes: FastifyPluginAsync = async (fastify) => {
     }
     
     // Parse status array
-    const statusArray = status ? status.split(',') as MessageStatus[] : undefined;
+    const statusArray = status ? status.split(',') as ProcessStatus[] : undefined;
     
     try {
       const result = await messageService.getTopicMessages(guildId, topicName, {

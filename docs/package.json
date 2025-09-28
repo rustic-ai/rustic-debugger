@@ -1,0 +1,47 @@
+{
+  "name": "@rustic-debug/docs",
+  "version": "0.1.0",
+  "description": "Documentation website for Rustic Debug",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite dev --port 5173",
+    "build": "npx tsx src/scripts/build-docs.ts",
+    "build:vite": "vite build",
+    "preview": "vite preview",
+    "test": "vitest",
+    "test:ui": "vitest --ui",
+    "typecheck": "tsc --noEmit",
+    "validate": "markdownlint src/content/**/*.md",
+    "check-links": "markdown-link-check src/content/**/*.md",
+    "screenshots": "tsx src/scripts/screenshots.ts",
+    "optimize-images": "tsx src/scripts/optimize-images.ts",
+    "lighthouse-ci": "lhci autorun",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "glob": "^11.0.3",
+    "gray-matter": "^4.0.3",
+    "highlight.js": "^11.11.1",
+    "lunr": "^2.3.9",
+    "marked": "^16.3.0",
+    "marked-gfm-heading-id": "^4.1.2",
+    "marked-highlight": "^2.2.2",
+    "sharp": "^0.33.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.40.0",
+    "@types/lunr": "^2.3.7",
+    "@types/marked": "^6.0.0",
+    "@types/node": "^20.10.6",
+    "autoprefixer": "^10.4.16",
+    "markdown-link-check": "^3.11.2",
+    "markdownlint-cli": "^0.37.0",
+    "postcss": "^8.4.33",
+    "tailwindcss": "^3.4.0",
+    "tsx": "^4.7.0",
+    "typescript": "^5.3.3",
+    "vite": "^5.0.10",
+    "vitest": "^1.1.1"
+  }
+}

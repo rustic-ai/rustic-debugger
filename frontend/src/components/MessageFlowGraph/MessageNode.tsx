@@ -12,11 +12,14 @@ interface MessageNodeData {
 
 export function MessageNode({ data }: NodeProps<MessageNodeData>) {
   const { message, color, isSelected, isFromSelectedTopic, onSelect } = data;
-  const msgId = typeof message.id === 'string' ? message.id : message.id.id;
+  const msgId = typeof message.id === 'number' ? message.id.toString() :
+                typeof message.id === 'string' ? message.id :
+                message.id?.id || '';
 
   // Format timestamp
-  const timestamp = message.metadata.timestamp;
-  const date = timestamp instanceof Date ? timestamp : new Date(timestamp);
+  const timestamp = message.timestamp;
+  const date = typeof timestamp === 'number' ? new Date(timestamp) :
+               timestamp instanceof Date ? timestamp : new Date(timestamp);
   const timeStr = date.toLocaleTimeString('en-US', {
     hour: '2-digit',
     minute: '2-digit',
@@ -24,8 +27,10 @@ export function MessageNode({ data }: NodeProps<MessageNodeData>) {
     hour12: false,
   });
 
-  const agentName = message.metadata.sourceAgent;
-  const topicName = message.topicName;
+  const agentName = message.sender?.name || message.sender?.id || 'unknown';
+  const topicName = typeof message.topics === 'string' ? message.topics :
+                   Array.isArray(message.topics) ? message.topics[0] :
+                   message.topic || 'unknown';
 
   // Helper function to get message format class name
   const getMessageFormatClassName = (message: Message) => {
@@ -77,7 +82,9 @@ export function MessageNode({ data }: NodeProps<MessageNodeData>) {
       {/* Message Format - Prominent */}
       <div className="flex items-center gap-1 mb-2 px-2 py-1 bg-primary/10 rounded-md border-l-2 border-primary/40">
         <Code className="w-3 h-3 text-primary" />
-        <span className="text-xs font-semibold text-primary truncate">{getMessageFormatClassName(message)}</span>
+        <span className="text-xs font-semibold text-primary truncate font-code">
+          {getMessageFormatClassName(message)}
+        </span>
       </div>
 
       {/* Topic */}
@@ -87,14 +94,14 @@ export function MessageNode({ data }: NodeProps<MessageNodeData>) {
       </div>
 
       {/* Message ID */}
-      <div className="text-xs text-muted-foreground font-mono truncate">
+      <div className="text-xs text-muted-foreground truncate font-code">
         ID: {msgId.substring(0, 12)}...
       </div>
 
       {/* Thread indicator */}
-      {message.parentMessageId && (
+      {message.in_response_to !== undefined && message.in_response_to !== null && (
         <div className="text-xs text-muted-foreground mt-1">
-          ↩ Response to: {message.parentMessageId.substring(0, 8)}...
+          ↩ Response to: {message.in_response_to.toString().substring(0, 8)}...
         </div>
       )}
 
