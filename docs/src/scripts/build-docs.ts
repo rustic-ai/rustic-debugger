@@ -5,9 +5,27 @@ import { gfmHeadingId } from 'marked-gfm-heading-id';
 import { markedHighlight } from 'marked-highlight';
 import hljs from 'highlight.js';
 import matter from 'gray-matter';
-import { readFile, writeFile, mkdir, readdir } from 'fs/promises';
+import { readFile, writeFile, mkdir, readdir, copyFile, stat } from 'fs/promises';
+import { existsSync } from 'fs';
 import path from 'path';
 import { glob } from 'glob';
+
+// Helper function to copy directory recursively
+async function copyDir(src: string, dest: string) {
+  await mkdir(dest, { recursive: true });
+  const entries = await readdir(src, { withFileTypes: true });
+
+  for (const entry of entries) {
+    const srcPath = path.join(src, entry.name);
+    const destPath = path.join(dest, entry.name);
+
+    if (entry.isDirectory()) {
+      await copyDir(srcPath, destPath);
+    } else {
+      await copyFile(srcPath, destPath);
+    }
+  }
+}
 
 // Configure marked
 marked.use(gfmHeadingId());
@@ -200,31 +218,31 @@ async function processMarkdownFile(filePath: string, outputDir: string) {
         <nav class="sidebar">
             <h3>📚 Documentation</h3>
             <ul>
-                <li><a href="/index.html">Home</a></li>
-                <li><a href="/user-guide/index.html" ${filePath.includes('user-guide') ? 'class="active"' : ''}>User Guide</a></li>
-                <li><a href="/dev-guide/index.html" ${filePath.includes('dev-guide') ? 'class="active"' : ''}>Developer Guide</a></li>
+                <li><a href="../index.html">Home</a></li>
+                <li><a href="../user-guide/index.html" ${filePath.includes('user-guide') ? 'class="active"' : ''}>User Guide</a></li>
+                <li><a href="../dev-guide/index.html" ${filePath.includes('dev-guide') ? 'class="active"' : ''}>Developer Guide</a></li>
             </ul>
 
             ${filePath.includes('user-guide') ? `
             <h3>User Guide</h3>
             <ul>
-                <li><a href="/user-guide/index.html">Overview</a></li>
-                <li><a href="/user-guide/screenshots.html">Screenshots</a></li>
-                <li><a href="/user-guide/installation.html">Installation</a></li>
-                <li><a href="/user-guide/configuration.html">Configuration</a></li>
-                <li><a href="/user-guide/basic-usage.html">Basic Usage</a></li>
-                <li><a href="/user-guide/advanced.html">Advanced Features</a></li>
+                <li><a href="./index.html">Overview</a></li>
+                <li><a href="./screenshots.html">Screenshots</a></li>
+                <li><a href="./installation.html">Installation</a></li>
+                <li><a href="./configuration.html">Configuration</a></li>
+                <li><a href="./basic-usage.html">Basic Usage</a></li>
+                <li><a href="./advanced.html">Advanced Features</a></li>
             </ul>
             ` : ''}
 
             ${filePath.includes('dev-guide') ? `
             <h3>Developer Guide</h3>
             <ul>
-                <li><a href="/dev-guide/index.html">Overview</a></li>
-                <li><a href="/dev-guide/architecture.html">Architecture</a></li>
-                <li><a href="/dev-guide/api.html">API Reference</a></li>
-                <li><a href="/dev-guide/integration.html">Integration</a></li>
-                <li><a href="/dev-guide/contributing.html">Contributing</a></li>
+                <li><a href="./index.html">Overview</a></li>
+                <li><a href="./architecture.html">Architecture</a></li>
+                <li><a href="./api.html">API Reference</a></li>
+                <li><a href="./integration.html">Integration</a></li>
+                <li><a href="./contributing.html">Contributing</a></li>
             </ul>
             ` : ''}
         </nav>
@@ -280,6 +298,14 @@ async function buildDocs() {
   const indexContent = await readFile(path.join(process.cwd(), 'src/index.html'), 'utf-8');
   await writeFile(path.join(outputDir, 'index.html'), indexContent);
   console.log('✅ Copied: index.html');
+
+  // Copy assets directory
+  const assetsDir = path.join(process.cwd(), 'src/assets');
+  const outputAssetsDir = path.join(outputDir, 'assets');
+  if (existsSync(assetsDir)) {
+    await copyDir(assetsDir, outputAssetsDir);
+    console.log('✅ Copied: assets directory');
+  }
 
   console.log('\n✨ Documentation build complete!');
   console.log(`📁 Output directory: ${outputDir}`);

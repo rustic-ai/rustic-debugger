@@ -12,7 +12,7 @@ Explore the Rustic Debug interface through these annotated screenshots and visua
 
 The Dashboard page is your entry point to debugging. It displays all available RusticAI guilds in your Redis instance with real-time metrics.
 
-![Dashboard Page - Guilds Overview]
+![Dashboard Page - Guilds Overview](../assets/screenshots/dashboard-guilds.png)
 
 **Key Features:**
 - **Guild Cards**: Each guild is displayed as a card showing:
@@ -33,7 +33,7 @@ The Dashboard page is your entry point to debugging. It displays all available R
 
 The main debugging interface provides comprehensive tools for message analysis.
 
-![Debug Dashboard](../assets/screenshots/debug-page.png)
+![Debug Dashboard](../assets/screenshots/debug-list-view.png)
 
 **Dashboard Components:**
 - **Header Bar**: Guild name, connection status, and view controls
@@ -45,7 +45,7 @@ The main debugging interface provides comprehensive tools for message analysis.
 
 The List View presents messages in a chronological format with topic filtering on the left sidebar.
 
-![List View - Chronological Message Display]
+![List View - Chronological Message Display](../assets/screenshots/debug-list-view.png)
 
 **List View Features:**
 
@@ -93,7 +93,7 @@ When you click on a message, the inspector panel opens:
 
 The Thread View groups related messages by conversation thread for easier tracking.
 
-![Thread View - Grouped by Conversation]
+![Thread View - Grouped by Conversation](../assets/screenshots/debug-thread-view.png)
 
 **Thread Visualization:**
 
@@ -121,7 +121,7 @@ The Thread View groups related messages by conversation thread for easier tracki
 
 The Graph View provides an interactive visualization of message flows using a node-based graph.
 
-![Graph View - Interactive Message Flow Visualization]
+![Graph View - Interactive Message Flow Visualization](../assets/screenshots/debug-graph-view.png)
 
 **Graph Visualization Components:**
 
