@@ -20,7 +20,7 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "glob": "^11.0.3",
+    "glob": "^11.1.0",
     "gray-matter": "^4.0.3",
     "highlight.js": "^11.11.1",
     "lunr": "^2.3.9",
